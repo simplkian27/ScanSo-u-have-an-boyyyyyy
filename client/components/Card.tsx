@@ -9,7 +9,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius, IndustrialDesign } from "@/constants/theme";
 
 interface CardProps {
   elevation?: number;
@@ -34,7 +34,7 @@ const getBackgroundColorForElevation = (
 ): string => {
   switch (elevation) {
     case 1:
-      return theme.backgroundDefault;
+      return theme.cardSurface || theme.backgroundDefault;
     case 2:
       return theme.backgroundSecondary;
     case 3:
@@ -80,18 +80,19 @@ export function Card({
         styles.card,
         {
           backgroundColor: cardBackgroundColor,
+          borderColor: theme.cardBorder || theme.border,
         },
         animatedStyle,
         style,
       ]}
     >
       {title ? (
-        <ThemedText type="h4" style={styles.cardTitle}>
+        <ThemedText type="h4" style={[styles.cardTitle, { color: theme.primary }]}>
           {title}
         </ThemedText>
       ) : null}
       {description ? (
-        <ThemedText type="small" style={styles.cardDescription}>
+        <ThemedText type="small" style={[styles.cardDescription, { color: theme.textSecondary }]}>
           {description}
         </ThemedText>
       ) : null}
@@ -102,13 +103,15 @@ export function Card({
 
 const styles = StyleSheet.create({
   card: {
-    padding: Spacing.xl,
-    borderRadius: BorderRadius["2xl"],
+    padding: IndustrialDesign.cardPadding,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
   },
   cardTitle: {
     marginBottom: Spacing.sm,
+    fontWeight: "700",
   },
   cardDescription: {
-    opacity: 0.7,
+    marginBottom: Spacing.sm,
   },
 });

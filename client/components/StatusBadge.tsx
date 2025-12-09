@@ -1,38 +1,53 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 
 interface StatusBadgeProps {
   status: string;
   size?: "small" | "medium";
 }
 
-const statusConfig: Record<string, { label: string; color: string; backgroundColor: string }> = {
-  open: {
-    label: "Open",
-    color: "#FFFFFF",
-    backgroundColor: Colors.light.statusOpen,
-  },
-  in_progress: {
-    label: "In Progress",
-    color: "#FFFFFF",
-    backgroundColor: Colors.light.statusInProgress,
-  },
-  completed: {
-    label: "Completed",
-    color: "#FFFFFF",
-    backgroundColor: Colors.light.statusCompleted,
-  },
-  cancelled: {
-    label: "Cancelled",
-    color: "#FFFFFF",
-    backgroundColor: Colors.light.statusCancelled,
-  },
-};
-
 export function StatusBadge({ status, size = "medium" }: StatusBadgeProps) {
-  const config = statusConfig[status] || statusConfig.open;
+  const { theme } = useTheme();
+  
+  const getStatusConfig = () => {
+    switch (status) {
+      case "open":
+        return {
+          label: "Open",
+          color: "#FFFFFF",
+          backgroundColor: theme.statusOpen || theme.statusIdle,
+        };
+      case "in_progress":
+        return {
+          label: "In Progress",
+          color: "#FFFFFF",
+          backgroundColor: theme.statusInProgress,
+        };
+      case "completed":
+        return {
+          label: "Completed",
+          color: "#FFFFFF",
+          backgroundColor: theme.statusCompleted || theme.success,
+        };
+      case "cancelled":
+        return {
+          label: "Cancelled",
+          color: "#FFFFFF",
+          backgroundColor: theme.statusCancelled || theme.error,
+        };
+      default:
+        return {
+          label: status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " "),
+          color: "#FFFFFF",
+          backgroundColor: theme.statusIdle,
+        };
+    }
+  };
+
+  const config = getStatusConfig();
   const isSmall = size === "small";
 
   return (
@@ -59,18 +74,23 @@ export function StatusBadge({ status, size = "medium" }: StatusBadgeProps) {
 
 const styles = StyleSheet.create({
   badge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: BorderRadius.sm,
+    minHeight: 28,
+    justifyContent: "center",
+    alignItems: "center",
   },
   badgeSmall: {
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: 2,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    minHeight: 24,
   },
   label: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "700",
     textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   labelSmall: {
     fontSize: 10,

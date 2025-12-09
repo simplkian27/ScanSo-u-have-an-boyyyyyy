@@ -1,7 +1,8 @@
 import React from "react";
 import { Pressable, StyleSheet } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, BorderRadius, IndustrialDesign } from "@/constants/theme";
 
 interface FilterChipProps {
   label: string;
@@ -18,7 +19,8 @@ export function FilterChip({
   color,
   small = false,
 }: FilterChipProps) {
-  const activeColor = color || Colors.light.accent;
+  const { theme } = useTheme();
+  const activeColor = color || theme.accent;
 
   return (
     <Pressable
@@ -26,8 +28,11 @@ export function FilterChip({
       style={({ pressed }) => [
         styles.chip,
         small && styles.chipSmall,
-        selected && { backgroundColor: activeColor },
-        !selected && styles.chipOutline,
+        selected && { backgroundColor: activeColor, borderColor: activeColor },
+        !selected && { 
+          backgroundColor: theme.backgroundDefault, 
+          borderColor: theme.border,
+        },
         pressed && styles.chipPressed,
       ]}
     >
@@ -36,7 +41,7 @@ export function FilterChip({
         style={[
           styles.label,
           small && styles.labelSmall,
-          { color: selected ? "#FFFFFF" : Colors.light.text },
+          { color: selected ? theme.textOnAccent : theme.text },
         ]}
       >
         {label}
@@ -47,25 +52,26 @@ export function FilterChip({
 
 const styles = StyleSheet.create({
   chip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.light.accent,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.sm,
+    minHeight: IndustrialDesign.minTouchTarget,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
   },
   chipSmall: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-  },
-  chipOutline: {
-    backgroundColor: Colors.light.backgroundDefault,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    minHeight: 40,
   },
   chipPressed: {
-    opacity: 0.7,
+    opacity: 0.8,
   },
   label: {
     fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
   labelSmall: {
     fontSize: 12,

@@ -8,7 +8,7 @@ import ScannerScreen from "@/screens/ScannerScreen";
 import ContainersStackNavigator from "@/navigation/ContainersStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
-import { Colors, Spacing } from "@/constants/theme";
+import { Spacing, IndustrialDesign } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 
 export type MainTabParamList = {
@@ -28,16 +28,17 @@ export default function MainTabNavigator() {
     <Tab.Navigator
       initialRouteName="TasksTab"
       screenOptions={{
-        tabBarActiveTintColor: Colors.light.accent,
-        tabBarInactiveTintColor: Colors.light.tabIconDefault,
+        tabBarActiveTintColor: theme.accent,
+        tabBarInactiveTintColor: theme.tabIconDefault,
         tabBarStyle: {
           position: "absolute",
           height: Spacing.tabBarHeight,
           backgroundColor: Platform.select({
             ios: "transparent",
-            android: Colors.light.backgroundDefault,
+            android: theme.backgroundDefault,
           }),
-          borderTopWidth: 0,
+          borderTopWidth: 1,
+          borderTopColor: theme.border,
           elevation: 0,
         },
         tabBarBackground: () =>
@@ -51,7 +52,8 @@ export default function MainTabNavigator() {
         headerShown: false,
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: "500",
+          fontWeight: "600",
+          letterSpacing: 0.3,
         },
       }}
     >
@@ -60,8 +62,8 @@ export default function MainTabNavigator() {
         component={TasksStackNavigator}
         options={{
           title: "Tasks",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="list" size={24} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Feather name="list" size={IndustrialDesign.iconSize} color={color} />
           ),
         }}
       />
@@ -70,8 +72,8 @@ export default function MainTabNavigator() {
         component={ScannerScreen}
         options={{
           title: "Scanner",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="maximize" size={24} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Feather name="maximize" size={IndustrialDesign.iconSize} color={color} />
           ),
         }}
       />
@@ -80,8 +82,8 @@ export default function MainTabNavigator() {
         component={ContainersStackNavigator}
         options={{
           title: "Containers",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="package" size={24} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Feather name="package" size={IndustrialDesign.iconSize} color={color} />
           ),
         }}
       />
@@ -90,8 +92,8 @@ export default function MainTabNavigator() {
         component={ProfileStackNavigator}
         options={{
           title: isAdmin ? "Admin" : "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Feather name={isAdmin ? "grid" : "user"} size={24} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Feather name={isAdmin ? "grid" : "user"} size={IndustrialDesign.iconSize} color={color} />
           ),
         }}
       />

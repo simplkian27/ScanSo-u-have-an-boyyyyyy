@@ -2,33 +2,41 @@ import React from "react";
 import { View, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, IndustrialDesign } from "@/constants/theme";
 import { useNetwork } from "@/contexts/NetworkContext";
 
 export function NetworkStatusBar() {
+  const { theme } = useTheme();
   const { isOnline, pendingActionsCount, lastSyncText, syncPendingActions, isSyncing } = useNetwork();
 
   if (isOnline && pendingActionsCount === 0) {
     return null;
   }
 
+  const backgroundColor = !isOnline ? theme.error : theme.statusInProgress;
+
   return (
-    <View style={[styles.container, !isOnline ? styles.offline : styles.pending]}>
+    <View style={[styles.container, { backgroundColor }]}>
       {!isOnline ? (
         <View style={styles.content}>
-          <Feather name="wifi-off" size={16} color={Colors.light.textOnAccent} />
-          <ThemedText type="small" style={styles.text}>
+          <Feather name="wifi-off" size={IndustrialDesign.iconSize} color={theme.textOnPrimary} />
+          <ThemedText type="small" style={[styles.text, { color: theme.textOnPrimary }]}>
             You're offline. Changes will sync when connected.
           </ThemedText>
         </View>
       ) : pendingActionsCount > 0 ? (
-        <Pressable style={styles.content} onPress={syncPendingActions} disabled={isSyncing}>
+        <Pressable 
+          style={[styles.content, styles.pressable]} 
+          onPress={syncPendingActions} 
+          disabled={isSyncing}
+        >
           {isSyncing ? (
-            <ActivityIndicator size="small" color={Colors.light.textOnAccent} />
+            <ActivityIndicator size="small" color={theme.textOnPrimary} />
           ) : (
-            <Feather name="refresh-cw" size={16} color={Colors.light.textOnAccent} />
+            <Feather name="refresh-cw" size={IndustrialDesign.iconSize} color={theme.textOnPrimary} />
           )}
-          <ThemedText type="small" style={styles.text}>
+          <ThemedText type="small" style={[styles.text, { color: theme.textOnPrimary }]}>
             {isSyncing 
               ? "Syncing..." 
               : `${pendingActionsCount} pending ${pendingActionsCount === 1 ? "action" : "actions"}. Tap to sync.`
@@ -42,23 +50,21 @@ export function NetworkStatusBar() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-  },
-  offline: {
-    backgroundColor: Colors.light.statusCancelled,
-  },
-  pending: {
-    backgroundColor: Colors.light.statusInProgress,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    minHeight: IndustrialDesign.minTouchTarget,
   },
   content: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.sm,
+    gap: Spacing.md,
+  },
+  pressable: {
+    minHeight: IndustrialDesign.minTouchTarget,
   },
   text: {
-    color: Colors.light.textOnAccent,
-    fontWeight: "500",
+    fontWeight: "600",
+    fontSize: 14,
   },
 });
