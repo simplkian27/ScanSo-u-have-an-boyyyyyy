@@ -109,6 +109,13 @@ export default function LoginScreen() {
               "Anmelden"
             )}
           </Button>
+
+          <View style={styles.infoContainer}>
+            <Feather name="info" size={16} color={Colors.light.textSecondary} />
+            <ThemedText type="small" style={styles.infoText}>
+              Sie haben noch kein Konto? Bitte kontaktieren Sie Ihren Administrator oder Manager.
+            </ThemedText>
+          </View>
         </View>
       </KeyboardAwareScrollViewCompat>
     </ThemedView>
@@ -172,5 +179,18 @@ const styles = StyleSheet.create({
   loginButton: {
     backgroundColor: Colors.light.accent,
     marginTop: Spacing.md,
+  },
+  infoContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    backgroundColor: Colors.light.backgroundDefault,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.xs,
+    marginTop: Spacing.lg,
+  },
+  infoText: {
+    color: Colors.light.textSecondary,
+    flex: 1,
   },
 });
