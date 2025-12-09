@@ -1,9 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-/**
- * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
- * @returns {string} The API base URL
- */
 export function getApiUrl(): string {
   let host = process.env.EXPO_PUBLIC_DOMAIN;
 
@@ -38,7 +34,6 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  await throwIfResNotOk(res);
   return res;
 }
 
@@ -49,7 +44,16 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const baseUrl = getApiUrl();
-    const url = new URL(queryKey.join("/") as string, baseUrl);
+    const url = new URL(queryKey[0] as string, baseUrl);
+
+    if (queryKey.length > 1 && queryKey[1]) {
+      const params = queryKey[1] as Record<string, string>;
+      Object.keys(params).forEach(key => {
+        if (params[key] !== undefined) {
+          url.searchParams.append(key, params[key]);
+        }
+      });
+    }
 
     const res = await fetch(url, {
       credentials: "include",
@@ -69,8 +73,8 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      staleTime: 1000 * 60 * 5,
+      retry: 1,
     },
     mutations: {
       retry: false,
