@@ -10,7 +10,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { ProgressBar } from "@/components/ProgressBar";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { ContainersStackParamList } from "@/navigation/ContainersStackNavigator";
 import { CustomerContainer, WarehouseContainer } from "@shared/schema";
 
@@ -22,6 +23,7 @@ export default function ContainersScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>("customer");
 
   const { data: customerContainers = [], isLoading: loadingCustomer, refetch: refetchCustomer, isRefetching: refetchingCustomer } = useQuery<CustomerContainer[]>({
@@ -43,39 +45,39 @@ export default function ContainersScreen() {
   };
 
   const getFillColor = (percentage: number) => {
-    if (percentage >= 80) return Colors.light.fillHigh;
-    if (percentage >= 51) return Colors.light.fillMedium;
-    return Colors.light.fillLow;
+    if (percentage >= 80) return theme.fillHigh;
+    if (percentage >= 51) return theme.fillMedium;
+    return theme.fillLow;
   };
 
   const renderCustomerContainer = ({ item }: { item: CustomerContainer }) => (
     <Card
-      style={styles.containerCard}
+      style={{ backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}
       onPress={() => navigation.navigate("ContainerDetail", { containerId: item.id, type: "customer" })}
     >
       <View style={styles.cardHeader}>
         <View style={styles.containerInfo}>
-          <Feather name="package" size={24} color={Colors.light.primary} />
+          <Feather name="package" size={24} color={theme.primary} />
           <View>
-            <ThemedText type="h4" style={styles.containerId}>{item.id}</ThemedText>
-            <ThemedText type="small" style={styles.customerName}>{item.customerName}</ThemedText>
+            <ThemedText type="h4" style={{ color: theme.primary }}>{item.id}</ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>{item.customerName}</ThemedText>
           </View>
         </View>
-        <Feather name="chevron-right" size={20} color={Colors.light.textSecondary} />
+        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
       </View>
 
       <View style={styles.cardDetails}>
         <View style={styles.detailRow}>
-          <Feather name="map-pin" size={16} color={Colors.light.textSecondary} />
-          <ThemedText type="small" style={styles.detailText}>{item.location}</ThemedText>
+          <Feather name="map-pin" size={16} color={theme.textSecondary} />
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>{item.location}</ThemedText>
         </View>
         <View style={styles.detailRow}>
-          <Feather name="tag" size={16} color={Colors.light.textSecondary} />
-          <ThemedText type="small" style={styles.detailText}>{item.materialType}</ThemedText>
+          <Feather name="tag" size={16} color={theme.textSecondary} />
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>{item.materialType}</ThemedText>
         </View>
         <View style={styles.detailRow}>
-          <Feather name="calendar" size={16} color={Colors.light.textSecondary} />
-          <ThemedText type="small" style={styles.detailText}>
+          <Feather name="calendar" size={16} color={theme.textSecondary} />
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>
             Zuletzt geleert: {formatDate(item.lastEmptied)}
           </ThemedText>
         </View>
@@ -90,30 +92,30 @@ export default function ContainersScreen() {
 
     return (
       <Card
-        style={styles.containerCard}
+        style={{ backgroundColor: theme.cardSurface, borderColor: theme.cardBorder }}
         onPress={() => navigation.navigate("ContainerDetail", { containerId: item.id, type: "warehouse" })}
       >
         <View style={styles.cardHeader}>
           <View style={styles.containerInfo}>
-            <Feather name="package" size={24} color={Colors.light.primary} />
+            <Feather name="package" size={24} color={theme.primary} />
             <View>
-              <ThemedText type="h4" style={styles.containerId}>{item.id}</ThemedText>
-              <ThemedText type="small" style={styles.customerName}>{item.location}</ThemedText>
+              <ThemedText type="h4" style={{ color: theme.primary }}>{item.id}</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>{item.location}</ThemedText>
             </View>
           </View>
           {isAlmostFull ? (
-            <View style={styles.warningBadge}>
+            <View style={[styles.warningBadge, { backgroundColor: theme.fillHigh }]}>
               <Feather name="alert-triangle" size={14} color="#FFFFFF" />
               <ThemedText type="small" style={styles.warningText}>Fast voll</ThemedText>
             </View>
           ) : (
-            <Feather name="chevron-right" size={20} color={Colors.light.textSecondary} />
+            <Feather name="chevron-right" size={20} color={theme.textSecondary} />
           )}
         </View>
 
         <View style={styles.fillContainer}>
           <View style={styles.fillHeader}>
-            <ThemedText type="small" style={styles.materialType}>{item.materialType}</ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>{item.materialType}</ThemedText>
             <ThemedText type="body" style={[styles.fillPercentage, { color: fillColor }]}>
               {fillPercentage.toFixed(0)}%
             </ThemedText>
@@ -123,7 +125,7 @@ export default function ContainersScreen() {
             color={fillColor}
             style={styles.progressBar}
           />
-          <ThemedText type="small" style={styles.capacityText}>
+          <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "right" }}>
             {item.currentAmount.toFixed(0)} / {item.maxCapacity} kg
           </ThemedText>
         </View>
@@ -133,11 +135,11 @@ export default function ContainersScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Feather name="package" size={48} color={Colors.light.textSecondary} />
-      <ThemedText type="h4" style={styles.emptyTitle}>
+      <Feather name="package" size={48} color={theme.textSecondary} />
+      <ThemedText type="h4" style={{ color: theme.text }}>
         Keine Container gefunden
       </ThemedText>
-      <ThemedText type="body" style={styles.emptySubtitle}>
+      <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
         {activeTab === "customer"
           ? "Keine Kundencontainer verfügbar"
           : "Keine Lagercontainer verfügbar"}
@@ -147,35 +149,41 @@ export default function ContainersScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={[styles.tabContainer, { marginTop: headerHeight }]}>
+      <View style={[styles.tabContainer, { marginTop: headerHeight, backgroundColor: theme.backgroundDefault }]}>
         <Pressable
-          style={[styles.tab, activeTab === "customer" && styles.activeTab]}
+          style={[styles.tab, activeTab === "customer" && { ...styles.activeTab, backgroundColor: theme.backgroundRoot }]}
           onPress={() => setActiveTab("customer")}
         >
           <Feather
             name="users"
             size={18}
-            color={activeTab === "customer" ? Colors.light.accent : Colors.light.textSecondary}
+            color={activeTab === "customer" ? theme.accent : theme.textSecondary}
           />
           <ThemedText
             type="body"
-            style={[styles.tabText, activeTab === "customer" && styles.activeTabText]}
+            style={{
+              color: activeTab === "customer" ? theme.accent : theme.textSecondary,
+              fontWeight: activeTab === "customer" ? "600" : "500",
+            }}
           >
             Kunde
           </ThemedText>
         </Pressable>
         <Pressable
-          style={[styles.tab, activeTab === "warehouse" && styles.activeTab]}
+          style={[styles.tab, activeTab === "warehouse" && { ...styles.activeTab, backgroundColor: theme.backgroundRoot }]}
           onPress={() => setActiveTab("warehouse")}
         >
           <Feather
             name="home"
             size={18}
-            color={activeTab === "warehouse" ? Colors.light.accent : Colors.light.textSecondary}
+            color={activeTab === "warehouse" ? theme.accent : theme.textSecondary}
           />
           <ThemedText
             type="body"
-            style={[styles.tabText, activeTab === "warehouse" && styles.activeTabText]}
+            style={{
+              color: activeTab === "warehouse" ? theme.accent : theme.textSecondary,
+              fontWeight: activeTab === "warehouse" ? "600" : "500",
+            }}
           >
             Lager
           </ThemedText>
@@ -184,7 +192,7 @@ export default function ContainersScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.light.accent} />
+          <ActivityIndicator size="large" color={theme.accent} />
         </View>
       ) : (
         <FlatList
@@ -193,14 +201,14 @@ export default function ContainersScreen() {
           renderItem={activeTab === "customer" ? renderCustomerContainer : renderWarehouseContainer}
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: tabBarHeight + Spacing.xl },
+            { paddingBottom: tabBarHeight + Spacing.xl, backgroundColor: theme.backgroundRoot },
           ]}
           ListEmptyComponent={renderEmptyState}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={refetch}
-              tintColor={Colors.light.accent}
+              tintColor={theme.accent}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -213,11 +221,9 @@ export default function ContainersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
   },
   tabContainer: {
     flexDirection: "row",
-    backgroundColor: Colors.light.backgroundDefault,
     marginHorizontal: Spacing.lg,
     marginVertical: Spacing.md,
     borderRadius: BorderRadius.sm,
@@ -233,15 +239,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xs,
   },
   activeTab: {
-    backgroundColor: Colors.light.backgroundRoot,
-  },
-  tabText: {
-    color: Colors.light.textSecondary,
-    fontWeight: "500",
-  },
-  activeTabText: {
-    color: Colors.light.accent,
-    fontWeight: "600",
+    borderRadius: BorderRadius.xs,
   },
   loadingContainer: {
     flex: 1,
@@ -251,9 +249,6 @@ const styles = StyleSheet.create({
   listContent: {
     padding: Spacing.lg,
     gap: Spacing.md,
-  },
-  containerCard: {
-    backgroundColor: Colors.light.backgroundDefault,
   },
   cardHeader: {
     flexDirection: "row",
@@ -266,17 +261,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
   },
-  containerId: {
-    color: Colors.light.primary,
-  },
-  customerName: {
-    color: Colors.light.textSecondary,
-  },
   warningBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: Colors.light.fillHigh,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
@@ -294,9 +282,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
-  detailText: {
-    color: Colors.light.textSecondary,
-  },
   fillContainer: {
     gap: Spacing.sm,
   },
@@ -305,18 +290,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  materialType: {
-    color: Colors.light.textSecondary,
-  },
   fillPercentage: {
     fontWeight: "700",
   },
   progressBar: {
     height: 10,
-  },
-  capacityText: {
-    color: Colors.light.textSecondary,
-    textAlign: "right",
   },
   emptyState: {
     flex: 1,
@@ -324,12 +302,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing["5xl"],
     gap: Spacing.md,
-  },
-  emptyTitle: {
-    color: Colors.light.text,
-  },
-  emptySubtitle: {
-    color: Colors.light.textSecondary,
-    textAlign: "center",
   },
 });
