@@ -95,7 +95,7 @@ export default function AnalyticsScreen() {
       >
         <Card style={{ backgroundColor: theme.cardSurface }}>
           <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
-            Weekly Deliveries
+            Wöchentliche Lieferungen
           </ThemedText>
           <View style={styles.barChart}>
             {analytics?.dailyTrends.map((day, index) => (
@@ -124,7 +124,7 @@ export default function AnalyticsScreen() {
 
         <Card style={{ backgroundColor: theme.cardSurface }}>
           <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
-            Material Distribution
+            Materialverteilung
           </ThemedText>
           <View style={styles.materialList}>
             {analytics?.materialBreakdown.map((material) => {
@@ -153,7 +153,7 @@ export default function AnalyticsScreen() {
 
         <Card style={{ backgroundColor: theme.cardSurface }}>
           <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
-            Container Fill Levels
+            Container-Füllstände
           </ThemedText>
           <View style={styles.levelList}>
             {analytics?.containerLevels.map((container) => (
@@ -196,7 +196,7 @@ export default function AnalyticsScreen() {
 
         <Card style={{ backgroundColor: theme.cardSurface }}>
           <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
-            Summary
+            Zusammenfassung
           </ThemedText>
           <View style={styles.summaryGrid}>
             <View style={styles.summaryItem}>
@@ -205,7 +205,7 @@ export default function AnalyticsScreen() {
                 {analytics?.dailyTrends.reduce((sum, d) => sum + d.deliveries, 0) || 0}
               </ThemedText>
               <ThemedText type="small" style={[styles.summaryLabel, { color: theme.textSecondary }]}>
-                Total Deliveries
+                Lieferungen gesamt
               </ThemedText>
             </View>
             <View style={styles.summaryItem}>
@@ -214,7 +214,7 @@ export default function AnalyticsScreen() {
                 {analytics?.containerLevels.length || 0}
               </ThemedText>
               <ThemedText type="small" style={[styles.summaryLabel, { color: theme.textSecondary }]}>
-                Containers
+                Container
               </ThemedText>
             </View>
             <View style={styles.summaryItem}>
@@ -223,7 +223,7 @@ export default function AnalyticsScreen() {
                 {analytics?.containerLevels.filter(c => c.fillPercentage >= 80).length || 0}
               </ThemedText>
               <ThemedText type="small" style={[styles.summaryLabel, { color: theme.textSecondary }]}>
-                Critical
+                Kritisch
               </ThemedText>
             </View>
           </View>

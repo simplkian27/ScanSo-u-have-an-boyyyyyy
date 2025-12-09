@@ -61,7 +61,7 @@ export default function MainTabNavigator() {
         name="TasksTab"
         component={TasksStackNavigator}
         options={{
-          title: "Tasks",
+          title: "Aufgaben",
           tabBarIcon: ({ color }) => (
             <Feather name="list" size={IndustrialDesign.iconSize} color={color} />
           ),
@@ -81,7 +81,7 @@ export default function MainTabNavigator() {
         name="ContainersTab"
         component={ContainersStackNavigator}
         options={{
-          title: "Containers",
+          title: "Container",
           tabBarIcon: ({ color }) => (
             <Feather name="package" size={IndustrialDesign.iconSize} color={color} />
           ),
@@ -91,7 +91,7 @@ export default function MainTabNavigator() {
         name="ProfileTab"
         component={ProfileStackNavigator}
         options={{
-          title: isAdmin ? "Admin" : "Profile",
+          title: isAdmin ? "Admin" : "Profil",
           tabBarIcon: ({ color }) => (
             <Feather name={isAdmin ? "grid" : "user"} size={IndustrialDesign.iconSize} color={color} />
           ),

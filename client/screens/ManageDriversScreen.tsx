@@ -43,7 +43,7 @@ export default function ManageDriversScreen() {
 
   const handleCreateDriver = async () => {
     if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim()) {
-      setError("Please fill in all fields");
+      setError("Bitte füllen Sie alle Felder aus");
       return;
     }
 
@@ -62,7 +62,7 @@ export default function ManageDriversScreen() {
       setShowCreateModal(false);
       setFormData({ name: "", email: "", password: "" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create driver");
+      setError(err instanceof Error ? err.message : "Fahrer konnte nicht erstellt werden");
     } finally {
       setIsSubmitting(false);
     }
@@ -113,7 +113,7 @@ export default function ManageDriversScreen() {
             type="small"
             style={[styles.statusText, { color: item.isActive ? Colors.light.success : Colors.light.error }]}
           >
-            {item.isActive ? "Active" : "Inactive"}
+            {item.isActive ? "Aktiv" : "Inaktiv"}
           </ThemedText>
         </Pressable>
       </View>
@@ -124,10 +124,10 @@ export default function ManageDriversScreen() {
     <View style={styles.emptyState}>
       <Feather name="users" size={48} color={Colors.light.textSecondary} />
       <ThemedText type="h4" style={styles.emptyTitle}>
-        No drivers yet
+        Noch keine Fahrer
       </ThemedText>
       <ThemedText type="body" style={styles.emptySubtitle}>
-        Add drivers to assign tasks
+        Fügen Sie Fahrer hinzu, um Aufgaben zuzuweisen
       </ThemedText>
     </View>
   );
@@ -136,7 +136,7 @@ export default function ManageDriversScreen() {
     <ThemedView style={styles.container}>
       <View style={[styles.header, { marginTop: headerHeight }]}>
         <ThemedText type="body" style={styles.headerText}>
-          {drivers.length} driver{drivers.length !== 1 ? "s" : ""}
+          {drivers.length} Fahrer
         </ThemedText>
         <Button
           style={styles.addButton}
@@ -147,7 +147,7 @@ export default function ManageDriversScreen() {
         >
           <View style={styles.addContent}>
             <Feather name="plus" size={18} color="#FFFFFF" />
-            <ThemedText type="small" style={styles.addText}>Add Driver</ThemedText>
+            <ThemedText type="small" style={styles.addText}>Fahrer hinzufügen</ThemedText>
           </View>
         </Button>
       </View>
@@ -182,7 +182,7 @@ export default function ManageDriversScreen() {
           >
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <ThemedText type="h3">Add New Driver</ThemedText>
+                <ThemedText type="h3">Neuen Fahrer hinzufügen</ThemedText>
                 <Pressable
                   onPress={() => setShowCreateModal(false)}
                   style={styles.closeButton}
@@ -193,18 +193,18 @@ export default function ManageDriversScreen() {
 
               <View style={styles.form}>
                 <TextInput
-                  label="Full Name"
+                  label="Vollständiger Name"
                   value={formData.name}
                   onChangeText={(text) => setFormData({ ...formData, name: text })}
-                  placeholder="Enter driver's name"
+                  placeholder="Name des Fahrers eingeben"
                   autoCapitalize="words"
                 />
 
                 <TextInput
-                  label="Email"
+                  label="E-Mail"
                   value={formData.email}
                   onChangeText={(text) => setFormData({ ...formData, email: text })}
-                  placeholder="Enter email address"
+                  placeholder="E-Mail-Adresse eingeben"
                   keyboardType="email-address"
                   autoCapitalize="none"
                 />
@@ -212,10 +212,10 @@ export default function ManageDriversScreen() {
                 <View style={styles.passwordRow}>
                   <View style={styles.passwordInput}>
                     <TextInput
-                      label="Password"
+                      label="Passwort"
                       value={formData.password}
                       onChangeText={(text) => setFormData({ ...formData, password: text })}
-                      placeholder="Enter password"
+                      placeholder="Passwort eingeben"
                     />
                   </View>
                   <Pressable
@@ -241,7 +241,7 @@ export default function ManageDriversScreen() {
                   style={styles.cancelButton}
                   onPress={() => setShowCreateModal(false)}
                 >
-                  Cancel
+                  Abbrechen
                 </Button>
                 <Button
                   style={styles.submitButton}
@@ -251,7 +251,7 @@ export default function ManageDriversScreen() {
                   {isSubmitting ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    "Create Driver"
+                    "Fahrer erstellen"
                   )}
                 </Button>
               </View>

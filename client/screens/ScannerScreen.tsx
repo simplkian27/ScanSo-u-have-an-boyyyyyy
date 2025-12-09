@@ -79,11 +79,11 @@ export default function ScannerScreen() {
             setActiveTask(inProgressTask);
           }
         } else {
-          setError("Container not found. Please scan a valid QR code.");
+          setError("Container nicht gefunden. Bitte scannen Sie einen gültigen QR-Code.");
         }
       }
     } catch (err) {
-      setError("Failed to scan container. Please try again.");
+      setError("Container-Scan fehlgeschlagen. Bitte erneut versuchen.");
     } finally {
       setIsProcessing(false);
     }
@@ -114,7 +114,7 @@ export default function ScannerScreen() {
         location,
       });
 
-      setSuccess("Pickup confirmed! Container is now in transit.");
+      setSuccess("Abholung bestätigt! Container ist jetzt unterwegs.");
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       
       setTimeout(() => {
@@ -124,7 +124,7 @@ export default function ScannerScreen() {
         scanLock.current = false;
       }, 2000);
     } catch (err) {
-      setError("Failed to confirm pickup. Please try again.");
+      setError("Abholungsbestätigung fehlgeschlagen. Bitte erneut versuchen.");
     } finally {
       setIsProcessing(false);
     }
@@ -138,7 +138,7 @@ export default function ScannerScreen() {
     const warehouseContainer = scanResult.container as WarehouseContainer;
 
     if (warehouseContainer.materialType !== activeTask.materialType) {
-      setError(`Material mismatch! Container accepts ${warehouseContainer.materialType}, but task material is ${activeTask.materialType}.`);
+      setError(`Materialkonflikt! Container akzeptiert ${warehouseContainer.materialType}, aber Aufgabenmaterial ist ${activeTask.materialType}.`);
       setIsProcessing(false);
       return;
     }
@@ -147,7 +147,7 @@ export default function ScannerScreen() {
     const estimatedAmount = activeTask.estimatedAmount || 0;
 
     if (estimatedAmount > availableSpace) {
-      setError(`Insufficient capacity! Only ${availableSpace.toFixed(0)}kg available, but ${estimatedAmount}kg needed.`);
+      setError(`Kapazität unzureichend! Nur ${availableSpace.toFixed(0)}kg verfügbar, aber ${estimatedAmount}kg benötigt.`);
       setIsProcessing(false);
       return;
     }
@@ -161,7 +161,7 @@ export default function ScannerScreen() {
         location,
       });
 
-      setSuccess("Delivery confirmed! Task completed.");
+      setSuccess("Lieferung bestätigt! Aufgabe abgeschlossen.");
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/containers/warehouse"] });
       
@@ -172,7 +172,7 @@ export default function ScannerScreen() {
         scanLock.current = false;
       }, 2000);
     } catch (err) {
-      setError("Failed to confirm delivery. Please try again.");
+      setError("Lieferungsbestätigung fehlgeschlagen. Bitte erneut versuchen.");
     } finally {
       setIsProcessing(false);
     }
@@ -200,17 +200,17 @@ export default function ScannerScreen() {
         <View style={styles.permissionContent}>
           <Feather name="camera-off" size={64} color={Colors.light.textSecondary} />
           <ThemedText type="h4" style={styles.permissionTitle}>
-            Camera Access Required
+            Kamerazugriff erforderlich
           </ThemedText>
           <ThemedText type="body" style={styles.permissionText}>
-            ContainerFlow needs camera access to scan QR codes on containers.
+            ContainerFlow benötigt Kamerazugriff zum Scannen von QR-Codes auf Containern.
           </ThemedText>
           <Button onPress={requestPermission} style={styles.permissionButton}>
-            Enable Camera
+            Kamera aktivieren
           </Button>
           {permission.status === "denied" && !permission.canAskAgain && Platform.OS !== "web" ? (
             <ThemedText type="small" style={styles.permissionHint}>
-              Please enable camera access in your device settings.
+              Bitte aktivieren Sie den Kamerazugriff in Ihren Geräteeinstellungen.
             </ThemedText>
           ) : null}
         </View>
@@ -239,7 +239,7 @@ export default function ScannerScreen() {
               color="#FFFFFF"
             />
             <ThemedText type="body" style={styles.modeText}>
-              {scanMode === "pickup" ? "Scan for Pickup" : "Scan for Delivery"}
+              {scanMode === "pickup" ? "Scannen für Abholung" : "Scannen für Lieferung"}
             </ThemedText>
           </View>
         </View>
@@ -256,7 +256,7 @@ export default function ScannerScreen() {
             <View style={styles.activeTaskBanner}>
               <Feather name="truck" size={20} color={Colors.light.statusInProgress} />
               <ThemedText type="small" style={styles.activeTaskText}>
-                In transit: {inProgressTask.containerID}
+                Unterwegs: {inProgressTask.containerID}
               </ThemedText>
             </View>
           ) : null}
@@ -293,7 +293,7 @@ export default function ScannerScreen() {
               <>
                 <View style={styles.modalHeader}>
                   <ThemedText type="h3">
-                    {scanResult.type === "customer" ? "Customer Container" : "Warehouse Container"}
+                    {scanResult.type === "customer" ? "Kundencontainer" : "Lagercontainer"}
                   </ThemedText>
                   <Pressable onPress={closeModal} style={styles.closeButton}>
                     <Feather name="x" size={24} color={Colors.light.text} />
@@ -319,7 +319,7 @@ export default function ScannerScreen() {
 
                     {scanResult.type === "warehouse" ? (
                       <View style={styles.detailItem}>
-                        <ThemedText type="small" style={styles.detailLabel}>Capacity</ThemedText>
+                        <ThemedText type="small" style={styles.detailLabel}>Kapazität</ThemedText>
                         <ThemedText type="body">
                           {(scanResult.container as WarehouseContainer).currentAmount.toFixed(0)} / {(scanResult.container as WarehouseContainer).maxCapacity} kg
                         </ThemedText>
@@ -339,7 +339,7 @@ export default function ScannerScreen() {
 
                 <View style={styles.modalActions}>
                   <Button onPress={closeModal} style={styles.cancelButton}>
-                    Cancel
+                    Abbrechen
                   </Button>
                   {scanResult.type === "customer" && activeTask ? (
                     <Button
@@ -350,7 +350,7 @@ export default function ScannerScreen() {
                       {isProcessing ? (
                         <ActivityIndicator size="small" color="#FFFFFF" />
                       ) : (
-                        "Confirm Pickup"
+                        "Abholung bestätigen"
                       )}
                     </Button>
                   ) : scanResult.type === "warehouse" && activeTask ? (
@@ -362,12 +362,12 @@ export default function ScannerScreen() {
                       {isProcessing ? (
                         <ActivityIndicator size="small" color="#FFFFFF" />
                       ) : (
-                        "Confirm Delivery"
+                        "Lieferung bestätigen"
                       )}
                     </Button>
                   ) : (
                     <ThemedText type="small" style={styles.noTaskText}>
-                      No active task for this container
+                      Keine aktive Aufgabe für diesen Container
                     </ThemedText>
                   )}
                 </View>

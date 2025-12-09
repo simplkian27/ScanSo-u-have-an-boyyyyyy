@@ -16,25 +16,25 @@ export function StatusBadge({ status, size = "medium" }: StatusBadgeProps) {
     switch (status) {
       case "open":
         return {
-          label: "Open",
+          label: "Offen",
           color: "#FFFFFF",
           backgroundColor: theme.statusOpen || theme.statusIdle,
         };
       case "in_progress":
         return {
-          label: "In Progress",
+          label: "In Bearbeitung",
           color: "#FFFFFF",
           backgroundColor: theme.statusInProgress,
         };
       case "completed":
         return {
-          label: "Completed",
+          label: "Erledigt",
           color: "#FFFFFF",
           backgroundColor: theme.statusCompleted || theme.success,
         };
       case "cancelled":
         return {
-          label: "Cancelled",
+          label: "Storniert",
           color: "#FFFFFF",
           backgroundColor: theme.statusCancelled || theme.error,
         };

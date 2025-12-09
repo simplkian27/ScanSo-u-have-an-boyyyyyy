@@ -46,7 +46,7 @@ export default function CreateTaskScreen() {
 
   const handleSubmit = async () => {
     if (!selectedContainer || !selectedDriver) {
-      setError("Please select a container and driver");
+      setError("Bitte wählen Sie einen Container und Fahrer aus");
       return;
     }
 
@@ -69,7 +69,7 @@ export default function CreateTaskScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       navigation.goBack();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create task");
+      setError(err instanceof Error ? err.message : "Aufgabe konnte nicht erstellt werden");
     } finally {
       setIsSubmitting(false);
     }
@@ -85,7 +85,7 @@ export default function CreateTaskScreen() {
       >
         <Card style={styles.section}>
           <ThemedText type="h4" style={styles.sectionTitle}>
-            Select Container
+            Container auswählen
           </ThemedText>
           <ScrollView
             horizontal
@@ -133,7 +133,7 @@ export default function CreateTaskScreen() {
 
         <Card style={styles.section}>
           <ThemedText type="h4" style={styles.sectionTitle}>
-            Assign Driver
+            Fahrer zuweisen
           </ThemedText>
           <View style={styles.driverList}>
             {drivers.map((driver) => (
@@ -169,26 +169,26 @@ export default function CreateTaskScreen() {
           </View>
           {drivers.length === 0 ? (
             <ThemedText type="small" style={styles.noDrivers}>
-              No active drivers available
+              Keine aktiven Fahrer verfügbar
             </ThemedText>
           ) : null}
         </Card>
 
         <Card style={styles.section}>
           <ThemedText type="h4" style={styles.sectionTitle}>
-            Task Details
+            Aufgabendetails
           </ThemedText>
 
           <TextInput
-            label="Estimated Amount (kg)"
+            label="Geschätzte Menge (kg)"
             value={estimatedAmount}
             onChangeText={setEstimatedAmount}
-            placeholder="e.g., 50"
+            placeholder="z.B. 50"
             keyboardType="numeric"
           />
 
           <View style={styles.prioritySection}>
-            <ThemedText type="small" style={styles.label}>Priority</ThemedText>
+            <ThemedText type="small" style={styles.label}>Priorität</ThemedText>
             <View style={styles.priorityOptions}>
               {(["normal", "high", "urgent"] as const).map((p) => (
                 <Pressable
@@ -208,7 +208,7 @@ export default function CreateTaskScreen() {
                       priority === p && styles.prioritySelectedText,
                     ]}
                   >
-                    {p.charAt(0).toUpperCase() + p.slice(1)}
+                    {p === "normal" ? "Normal" : p === "high" ? "Hoch" : "Dringend"}
                   </ThemedText>
                 </Pressable>
               ))}
@@ -216,10 +216,10 @@ export default function CreateTaskScreen() {
           </View>
 
           <TextInput
-            label="Notes (optional)"
+            label="Notizen (optional)"
             value={notes}
             onChangeText={setNotes}
-            placeholder="Add pickup instructions..."
+            placeholder="Abholungsanweisungen hinzufügen..."
             multiline
             numberOfLines={3}
             style={styles.notesInput}
@@ -246,7 +246,7 @@ export default function CreateTaskScreen() {
             <View style={styles.submitContent}>
               <Feather name="plus-circle" size={20} color="#FFFFFF" />
               <ThemedText type="body" style={styles.submitText}>
-                Create Task
+                Aufgabe erstellen
               </ThemedText>
             </View>
           )}

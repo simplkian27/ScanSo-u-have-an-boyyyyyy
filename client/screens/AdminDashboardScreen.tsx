@@ -96,38 +96,38 @@ export default function AdminDashboardScreen() {
         }
       >
         <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
-          Today's Overview
+          Tagesübersicht
         </ThemedText>
 
         <View style={styles.statsGrid}>
           <StatCard
             icon="inbox"
-            label="Open Tasks"
+            label="Offene Aufgaben"
             value={stats?.openTasks || 0}
             color={theme.statusOpen}
           />
           <StatCard
             icon="truck"
-            label="In Progress"
+            label="In Bearbeitung"
             value={stats?.inProgressTasks || 0}
             color={theme.statusInProgress}
           />
           <StatCard
             icon="check-circle"
-            label="Completed Today"
+            label="Heute erledigt"
             value={stats?.completedToday || 0}
             color={theme.statusCompleted || theme.success}
           />
           <StatCard
             icon="users"
-            label="Active Drivers"
+            label="Aktive Fahrer"
             value={stats?.activeDrivers || 0}
             color={theme.primary}
           />
         </View>
 
         <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
-          Container Status
+          Container-Status
         </ThemedText>
 
         <View style={styles.statsRow}>
@@ -146,7 +146,7 @@ export default function AdminDashboardScreen() {
                   {stats?.criticalContainers || 0}
                 </ThemedText>
                 <ThemedText type="small" style={[styles.alertLabel, { color: theme.textSecondary }]}>
-                  Critical Containers
+                  Kritische Container
                 </ThemedText>
               </View>
             </View>
@@ -160,7 +160,7 @@ export default function AdminDashboardScreen() {
                   {stats?.availableCapacity ? `${(stats.availableCapacity / 1000).toFixed(1)}t` : "0t"}
                 </ThemedText>
                 <ThemedText type="small" style={[styles.alertLabel, { color: theme.textSecondary }]}>
-                  Available Capacity
+                  Verfügbare Kapazität
                 </ThemedText>
               </View>
             </View>
@@ -168,7 +168,7 @@ export default function AdminDashboardScreen() {
         </View>
 
         <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.primary }]}>
-          Quick Actions
+          Schnellaktionen
         </ThemedText>
 
         <View style={styles.actionsGrid}>
@@ -179,7 +179,7 @@ export default function AdminDashboardScreen() {
             <View style={styles.actionContent}>
               <Feather name="plus-circle" size={20} color={theme.textOnAccent} />
               <ThemedText type="body" style={[styles.actionText, { color: theme.textOnAccent }]}>
-                Create Task
+                Aufgabe erstellen
               </ThemedText>
             </View>
           </Button>
@@ -191,7 +191,7 @@ export default function AdminDashboardScreen() {
             <View style={styles.actionContent}>
               <Feather name="users" size={20} color={theme.primary} />
               <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
-                Manage Drivers
+                Fahrer verwalten
               </ThemedText>
             </View>
           </Button>
@@ -203,7 +203,7 @@ export default function AdminDashboardScreen() {
             <View style={styles.actionContent}>
               <Feather name="package" size={20} color={theme.primary} />
               <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
-                Manage Containers
+                Container verwalten
               </ThemedText>
             </View>
           </Button>
@@ -215,7 +215,7 @@ export default function AdminDashboardScreen() {
             <View style={styles.actionContent}>
               <Feather name="activity" size={20} color={theme.primary} />
               <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
-                Activity Log
+                Aktivitätsprotokoll
               </ThemedText>
             </View>
           </Button>
@@ -227,7 +227,7 @@ export default function AdminDashboardScreen() {
             <View style={styles.actionContent}>
               <Feather name="bar-chart-2" size={20} color={theme.primary} />
               <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
-                Analytics
+                Statistiken
               </ThemedText>
             </View>
           </Button>
@@ -239,7 +239,7 @@ export default function AdminDashboardScreen() {
             <View style={styles.actionContent}>
               <Feather name="award" size={20} color={theme.primary} />
               <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
-                Driver Performance
+                Fahrerleistung
               </ThemedText>
             </View>
           </Button>
@@ -263,7 +263,7 @@ export default function AdminDashboardScreen() {
         >
           <Feather name="user" size={20} color={theme.textSecondary} />
           <ThemedText type="body" style={[styles.profileLinkText, { color: theme.textSecondary }]}>
-            View Profile
+            Profil anzeigen
           </ThemedText>
           <Feather name="chevron-right" size={20} color={theme.textSecondary} />
         </Pressable>

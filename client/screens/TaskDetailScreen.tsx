@@ -34,12 +34,12 @@ export default function TaskDetailScreen() {
   });
 
   const formatDate = (date: string | Date | null) => {
-    if (!date) return "Not scheduled";
+    if (!date) return "Nicht geplant";
     const d = new Date(date);
-    return d.toLocaleDateString("en-US", {
+    return d.toLocaleDateString("de-DE", {
       weekday: "long",
-      month: "long",
       day: "numeric",
+      month: "long",
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -48,8 +48,8 @@ export default function TaskDetailScreen() {
   const handleNavigation = async () => {
     if (!container?.latitude || !container?.longitude) {
       Alert.alert(
-        "Navigation Unavailable",
-        "Location coordinates are not available for this container.",
+        "Navigation nicht verfügbar",
+        "Standortkoordinaten sind für diesen Container nicht verfügbar.",
         [{ text: "OK" }]
       );
       return;
@@ -82,7 +82,7 @@ export default function TaskDetailScreen() {
       <ThemedView style={styles.container}>
         <View style={styles.errorState}>
           <Feather name="alert-circle" size={48} color={Colors.light.error} />
-          <ThemedText type="h4">Task not found</ThemedText>
+          <ThemedText type="h4">Aufgabe nicht gefunden</ThemedText>
         </View>
       </ThemedView>
     );
@@ -116,14 +116,14 @@ export default function TaskDetailScreen() {
 
         <Card style={styles.infoCard}>
           <ThemedText type="h4" style={styles.sectionTitle}>
-            Pickup Details
+            Abholungsdetails
           </ThemedText>
           
           <View style={styles.infoRow}>
             <Feather name="map-pin" size={20} color={Colors.light.textSecondary} />
             <View style={styles.infoContent}>
-              <ThemedText type="small" style={styles.infoLabel}>Location</ThemedText>
-              <ThemedText type="body">{container?.location || "Loading..."}</ThemedText>
+              <ThemedText type="small" style={styles.infoLabel}>Standort</ThemedText>
+              <ThemedText type="body">{container?.location || "Wird geladen..."}</ThemedText>
               {container?.customerName ? (
                 <ThemedText type="small" style={styles.infoSecondary}>
                   {container.customerName}
@@ -135,7 +135,7 @@ export default function TaskDetailScreen() {
           <View style={styles.infoRow}>
             <Feather name="clock" size={20} color={Colors.light.textSecondary} />
             <View style={styles.infoContent}>
-              <ThemedText type="small" style={styles.infoLabel}>Scheduled Time</ThemedText>
+              <ThemedText type="small" style={styles.infoLabel}>Geplante Zeit</ThemedText>
               <ThemedText type="body">{formatDate(task.scheduledTime)}</ThemedText>
             </View>
           </View>
@@ -144,7 +144,7 @@ export default function TaskDetailScreen() {
             <View style={styles.infoRow}>
               <Feather name="truck" size={20} color={Colors.light.textSecondary} />
               <View style={styles.infoContent}>
-                <ThemedText type="small" style={styles.infoLabel}>Estimated Amount</ThemedText>
+                <ThemedText type="small" style={styles.infoLabel}>Geschätzte Menge</ThemedText>
                 <ThemedText type="body">{task.estimatedAmount} kg</ThemedText>
               </View>
             </View>
@@ -154,9 +154,9 @@ export default function TaskDetailScreen() {
             <View style={styles.infoRow}>
               <Feather name="alert-triangle" size={20} color={Colors.light.warning} />
               <View style={styles.infoContent}>
-                <ThemedText type="small" style={styles.infoLabel}>Priority</ThemedText>
+                <ThemedText type="small" style={styles.infoLabel}>Priorität</ThemedText>
                 <ThemedText type="body" style={{ color: Colors.light.warning }}>
-                  {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                  {task.priority === "high" ? "Hoch" : task.priority === "urgent" ? "Dringend" : task.priority}
                 </ThemedText>
               </View>
             </View>
@@ -166,7 +166,7 @@ export default function TaskDetailScreen() {
         {task.notes ? (
           <Card style={styles.notesCard}>
             <ThemedText type="h4" style={styles.sectionTitle}>
-              Instructions
+              Anweisungen
             </ThemedText>
             <ThemedText type="body" style={styles.notes}>
               {task.notes}
@@ -177,12 +177,12 @@ export default function TaskDetailScreen() {
         {task.pickupTimestamp ? (
           <Card style={styles.timestampCard}>
             <ThemedText type="h4" style={styles.sectionTitle}>
-              Activity
+              Aktivität
             </ThemedText>
             <View style={styles.timestampRow}>
               <View style={[styles.timestampDot, { backgroundColor: Colors.light.statusInProgress }]} />
               <View>
-                <ThemedText type="body">Picked up</ThemedText>
+                <ThemedText type="body">Abgeholt</ThemedText>
                 <ThemedText type="small" style={styles.infoSecondary}>
                   {formatDate(task.pickupTimestamp)}
                 </ThemedText>
@@ -192,7 +192,7 @@ export default function TaskDetailScreen() {
               <View style={styles.timestampRow}>
                 <View style={[styles.timestampDot, { backgroundColor: Colors.light.statusCompleted }]} />
                 <View>
-                  <ThemedText type="body">Delivered to {task.deliveryContainerID}</ThemedText>
+                  <ThemedText type="body">Geliefert an {task.deliveryContainerID}</ThemedText>
                   <ThemedText type="small" style={styles.infoSecondary}>
                     {formatDate(task.deliveryTimestamp)}
                   </ThemedText>
@@ -208,7 +208,7 @@ export default function TaskDetailScreen() {
               <View style={styles.buttonContent}>
                 <Feather name="navigation" size={20} color={Colors.light.primary} />
                 <ThemedText type="body" style={{ color: Colors.light.primary, fontWeight: "600" }}>
-                  Start Navigation
+                  Navigation starten
                 </ThemedText>
               </View>
             </Button>
@@ -216,7 +216,7 @@ export default function TaskDetailScreen() {
               <View style={styles.buttonContent}>
                 <Feather name="maximize" size={20} color="#FFFFFF" />
                 <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
-                  Scan QR Code
+                  QR-Code scannen
                 </ThemedText>
               </View>
             </Button>

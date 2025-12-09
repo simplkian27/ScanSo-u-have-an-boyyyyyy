@@ -76,7 +76,7 @@ export default function DriverPerformanceScreen() {
       >
         <Card style={styles.overviewCard}>
           <ThemedText type="h4" style={styles.sectionTitle}>
-            Team Overview
+            Teamübersicht
           </ThemedText>
           <View style={styles.overviewGrid}>
             <View style={styles.overviewItem}>
@@ -87,7 +87,7 @@ export default function DriverPerformanceScreen() {
                 {data?.overall.totalDrivers || 0}
               </ThemedText>
               <ThemedText type="small" style={styles.overviewLabel}>
-                Total Drivers
+                Fahrer gesamt
               </ThemedText>
             </View>
             <View style={styles.overviewItem}>
@@ -98,7 +98,7 @@ export default function DriverPerformanceScreen() {
                 {data?.overall.activeDrivers || 0}
               </ThemedText>
               <ThemedText type="small" style={styles.overviewLabel}>
-                Active Today
+                Heute aktiv
               </ThemedText>
             </View>
             <View style={styles.overviewItem}>
@@ -109,7 +109,7 @@ export default function DriverPerformanceScreen() {
                 {data?.overall.totalCompletedThisWeek || 0}
               </ThemedText>
               <ThemedText type="small" style={styles.overviewLabel}>
-                This Week
+                Diese Woche
               </ThemedText>
             </View>
             <View style={styles.overviewItem}>
@@ -120,14 +120,14 @@ export default function DriverPerformanceScreen() {
                 {data?.overall.avgCompletionRate || 0}%
               </ThemedText>
               <ThemedText type="small" style={styles.overviewLabel}>
-                Avg Completion
+                Durchschn. Abschluss
               </ThemedText>
             </View>
           </View>
         </Card>
 
         <ThemedText type="h4" style={styles.sectionTitle}>
-          Driver Performance
+          Fahrerleistung
         </ThemedText>
 
         {data?.drivers.map((driver) => (
@@ -144,7 +144,7 @@ export default function DriverPerformanceScreen() {
               </View>
               <View style={[styles.statusBadge, driver.inProgress > 0 ? styles.activeBadge : styles.idleBadge]}>
                 <ThemedText type="small" style={driver.inProgress > 0 ? styles.activeText : styles.idleText}>
-                  {driver.inProgress > 0 ? "Active" : "Idle"}
+                  {driver.inProgress > 0 ? "Aktiv" : "Inaktiv"}
                 </ThemedText>
               </View>
             </View>
@@ -152,27 +152,27 @@ export default function DriverPerformanceScreen() {
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
                 <ThemedText type="h4" style={styles.statValue}>{driver.completedToday}</ThemedText>
-                <ThemedText type="small" style={styles.statLabel}>Today</ThemedText>
+                <ThemedText type="small" style={styles.statLabel}>Heute</ThemedText>
               </View>
               <View style={styles.statItem}>
                 <ThemedText type="h4" style={styles.statValue}>{driver.completedThisWeek}</ThemedText>
-                <ThemedText type="small" style={styles.statLabel}>This Week</ThemedText>
+                <ThemedText type="small" style={styles.statLabel}>Diese Woche</ThemedText>
               </View>
               <View style={styles.statItem}>
                 <ThemedText type="h4" style={styles.statValue}>{driver.totalCompleted}</ThemedText>
-                <ThemedText type="small" style={styles.statLabel}>Total</ThemedText>
+                <ThemedText type="small" style={styles.statLabel}>Gesamt</ThemedText>
               </View>
               <View style={styles.statItem}>
                 <ThemedText type="h4" style={styles.statValue}>
                   {driver.avgDeliveryTimeMinutes > 0 ? `${driver.avgDeliveryTimeMinutes}m` : "-"}
                 </ThemedText>
-                <ThemedText type="small" style={styles.statLabel}>Avg Time</ThemedText>
+                <ThemedText type="small" style={styles.statLabel}>Durchschn.</ThemedText>
               </View>
             </View>
 
             <View style={styles.progressSection}>
               <View style={styles.progressHeader}>
-                <ThemedText type="small" style={styles.progressLabel}>Completion Rate</ThemedText>
+                <ThemedText type="small" style={styles.progressLabel}>Abschlussrate</ThemedText>
                 <ThemedText type="body" style={[styles.progressValue, { color: getPerformanceColor(driver.completionRate) }]}>
                   {driver.completionRate}%
                 </ThemedText>
@@ -188,19 +188,19 @@ export default function DriverPerformanceScreen() {
               <View style={styles.breakdownItem}>
                 <View style={[styles.breakdownDot, { backgroundColor: Colors.light.statusCompleted }]} />
                 <ThemedText type="small" style={styles.breakdownText}>
-                  {driver.totalCompleted} completed
+                  {driver.totalCompleted} erledigt
                 </ThemedText>
               </View>
               <View style={styles.breakdownItem}>
                 <View style={[styles.breakdownDot, { backgroundColor: Colors.light.statusInProgress }]} />
                 <ThemedText type="small" style={styles.breakdownText}>
-                  {driver.inProgress} in progress
+                  {driver.inProgress} in Bearbeitung
                 </ThemedText>
               </View>
               <View style={styles.breakdownItem}>
                 <View style={[styles.breakdownDot, { backgroundColor: Colors.light.statusOpen }]} />
                 <ThemedText type="small" style={styles.breakdownText}>
-                  {driver.totalAssigned - driver.totalCompleted - driver.inProgress} pending
+                  {driver.totalAssigned - driver.totalCompleted - driver.inProgress} offen
                 </ThemedText>
               </View>
             </View>
@@ -211,7 +211,7 @@ export default function DriverPerformanceScreen() {
           <Card style={styles.emptyCard}>
             <Feather name="users" size={48} color={Colors.light.textSecondary} />
             <ThemedText type="body" style={styles.emptyText}>
-              No drivers found
+              Keine Fahrer gefunden
             </ThemedText>
           </Card>
         ) : null}

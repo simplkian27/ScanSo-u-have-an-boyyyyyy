@@ -140,7 +140,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.menuItemLeft}>
                 <Feather name="activity" size={20} color={theme.primary} />
-                <ThemedText type="body" style={{ color: theme.text }}>Aktivitatsprotokoll</ThemedText>
+                <ThemedText type="body" style={{ color: theme.text }}>Aktivitätsprotokoll</ThemedText>
               </View>
               <Feather name="chevron-right" size={20} color={theme.textSecondary} />
             </Pressable>

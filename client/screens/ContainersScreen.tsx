@@ -37,9 +37,9 @@ export default function ContainersScreen() {
   const refetch = activeTab === "customer" ? refetchCustomer : refetchWarehouse;
 
   const formatDate = (date: string | Date | null) => {
-    if (!date) return "Never";
+    if (!date) return "Nie";
     const d = new Date(date);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return d.toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" });
   };
 
   const getFillColor = (percentage: number) => {
@@ -76,7 +76,7 @@ export default function ContainersScreen() {
         <View style={styles.detailRow}>
           <Feather name="calendar" size={16} color={Colors.light.textSecondary} />
           <ThemedText type="small" style={styles.detailText}>
-            Last emptied: {formatDate(item.lastEmptied)}
+            Zuletzt geleert: {formatDate(item.lastEmptied)}
           </ThemedText>
         </View>
       </View>
@@ -104,7 +104,7 @@ export default function ContainersScreen() {
           {isAlmostFull ? (
             <View style={styles.warningBadge}>
               <Feather name="alert-triangle" size={14} color="#FFFFFF" />
-              <ThemedText type="small" style={styles.warningText}>Almost Full</ThemedText>
+              <ThemedText type="small" style={styles.warningText}>Fast voll</ThemedText>
             </View>
           ) : (
             <Feather name="chevron-right" size={20} color={Colors.light.textSecondary} />
@@ -135,12 +135,12 @@ export default function ContainersScreen() {
     <View style={styles.emptyState}>
       <Feather name="package" size={48} color={Colors.light.textSecondary} />
       <ThemedText type="h4" style={styles.emptyTitle}>
-        No containers found
+        Keine Container gefunden
       </ThemedText>
       <ThemedText type="body" style={styles.emptySubtitle}>
         {activeTab === "customer"
-          ? "No customer containers available"
-          : "No warehouse containers available"}
+          ? "Keine Kundencontainer verfügbar"
+          : "Keine Lagercontainer verfügbar"}
       </ThemedText>
     </View>
   );
@@ -161,7 +161,7 @@ export default function ContainersScreen() {
             type="body"
             style={[styles.tabText, activeTab === "customer" && styles.activeTabText]}
           >
-            Customer
+            Kunde
           </ThemedText>
         </Pressable>
         <Pressable
@@ -177,7 +177,7 @@ export default function ContainersScreen() {
             type="body"
             style={[styles.tabText, activeTab === "warehouse" && styles.activeTabText]}
           >
-            Warehouse
+            Lager
           </ThemedText>
         </Pressable>
       </View>

@@ -22,7 +22,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      setError("Please enter both email and password");
+      setError("Bitte geben Sie E-Mail und Passwort ein");
       return;
     }
 
@@ -32,7 +32,7 @@ export default function LoginScreen() {
     try {
       await login(email.trim(), password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : "Anmeldung fehlgeschlagen");
     } finally {
       setIsLoading(false);
     }
@@ -45,7 +45,7 @@ export default function LoginScreen() {
     try {
       await loginWithReplit();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Replit login failed");
+      setError(err instanceof Error ? err.message : "Replit-Anmeldung fehlgeschlagen");
     } finally {
       setIsReplitLoading(false);
     }
@@ -67,16 +67,16 @@ export default function LoginScreen() {
             ContainerFlow
           </ThemedText>
           <ThemedText type="body" style={styles.subtitle}>
-            Container Management System
+            Containerverwaltungssystem
           </ThemedText>
         </View>
 
         <View style={styles.form}>
           <TextInput
-            label="Email"
+            label="E-Mail"
             value={email}
             onChangeText={setEmail}
-            placeholder="Enter your email"
+            placeholder="E-Mail-Adresse eingeben"
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
@@ -84,10 +84,10 @@ export default function LoginScreen() {
 
           <View style={styles.passwordContainer}>
             <TextInput
-              label="Password"
+              label="Passwort"
               value={password}
               onChangeText={setPassword}
-              placeholder="Enter your password"
+              placeholder="Passwort eingeben"
               secureTextEntry={!showPassword}
               autoComplete="password"
             />
@@ -120,13 +120,13 @@ export default function LoginScreen() {
             {isLoading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              "Sign In"
+              "Anmelden"
             )}
           </Button>
 
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <ThemedText type="small" style={styles.dividerText}>or</ThemedText>
+            <ThemedText type="small" style={styles.dividerText}>oder</ThemedText>
             <View style={styles.dividerLine} />
           </View>
 
@@ -147,7 +147,7 @@ export default function LoginScreen() {
                   <Feather name="box" size={20} color={Colors.light.primary} />
                 </View>
                 <ThemedText type="bodyBold" style={styles.replitButtonText}>
-                  Continue with Replit
+                  Mit Replit anmelden
                 </ThemedText>
               </>
             )}
@@ -156,7 +156,7 @@ export default function LoginScreen() {
           <View style={styles.infoContainer}>
             <Feather name="info" size={16} color={Colors.light.textSecondary} />
             <ThemedText type="small" style={styles.infoText}>
-              Sign in with your Replit account or use your email credentials. New Replit users get driver access by default.
+              Melden Sie sich mit Ihrem Replit-Konto oder E-Mail an. Neue Replit-Benutzer erhalten standardmäßig Fahrerzugang.
             </ThemedText>
           </View>
         </View>

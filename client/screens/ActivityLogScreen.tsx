@@ -18,11 +18,11 @@ type UserWithoutPassword = Omit<User, "password">;
 type ActionFilter = "all" | "pickup" | "delivery" | "cancelled";
 
 const actionConfig: Record<string, { icon: keyof typeof Feather.glyphMap; color: string; label: string }> = {
-  pickup: { icon: "log-in", color: Colors.light.statusInProgress, label: "Pickup" },
-  delivery: { icon: "log-out", color: Colors.light.statusCompleted, label: "Delivery" },
-  cancelled: { icon: "x-circle", color: Colors.light.statusCancelled, label: "Cancelled" },
-  manual_edit: { icon: "edit", color: Colors.light.primary, label: "Edited" },
-  emptied: { icon: "refresh-ccw", color: Colors.light.fillLow, label: "Emptied" },
+  pickup: { icon: "log-in", color: Colors.light.statusInProgress, label: "Abholung" },
+  delivery: { icon: "log-out", color: Colors.light.statusCompleted, label: "Lieferung" },
+  cancelled: { icon: "x-circle", color: Colors.light.statusCancelled, label: "Storniert" },
+  manual_edit: { icon: "edit", color: Colors.light.primary, label: "Bearbeitet" },
+  emptied: { icon: "refresh-ccw", color: Colors.light.fillLow, label: "Geleert" },
 };
 
 export default function ActivityLogScreen() {
@@ -46,7 +46,7 @@ export default function ActivityLogScreen() {
 
   const handleExportCSV = async () => {
     if (logs.length === 0) {
-      Alert.alert("No Data", "There are no activity logs to export.");
+      Alert.alert("Keine Daten", "Es gibt keine Aktivitätsprotokolle zum Exportieren.");
       return;
     }
 
@@ -75,14 +75,14 @@ export default function ActivityLogScreen() {
             UTI: "public.comma-separated-values-text",
           });
         } else {
-          Alert.alert("Export Complete", `File saved to ${fileName}`);
+          Alert.alert("Export abgeschlossen", `Datei gespeichert unter ${fileName}`);
         }
       } else {
         throw new Error("Download failed");
       }
     } catch (error) {
       console.error("Export error:", error);
-      Alert.alert("Export Failed", "Failed to export activity logs. Please try again.");
+      Alert.alert("Export fehlgeschlagen", "Aktivitätsprotokolle konnten nicht exportiert werden. Bitte erneut versuchen.");
     } finally {
       setIsExporting(false);
     }
@@ -101,14 +101,14 @@ export default function ActivityLogScreen() {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return "Gerade eben";
+    if (diffMins < 60) return `vor ${diffMins} Min.`;
+    if (diffHours < 24) return `vor ${diffHours} Std.`;
+    if (diffDays < 7) return `vor ${diffDays} Tagen`;
 
-    return d.toLocaleDateString("en-US", {
-      month: "short",
+    return d.toLocaleDateString("de-DE", {
       day: "numeric",
+      month: "short",
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -158,10 +158,10 @@ export default function ActivityLogScreen() {
     <View style={styles.emptyState}>
       <Feather name="activity" size={48} color={Colors.light.textSecondary} />
       <ThemedText type="h4" style={styles.emptyTitle}>
-        No activity yet
+        Noch keine Aktivität
       </ThemedText>
       <ThemedText type="body" style={styles.emptySubtitle}>
-        Activity logs will appear here
+        Aktivitätsprotokolle werden hier angezeigt
       </ThemedText>
     </View>
   );
@@ -171,27 +171,27 @@ export default function ActivityLogScreen() {
       <View style={[styles.filterContainer, { marginTop: headerHeight }]}>
         <View style={styles.filterRow}>
           <FilterChip
-            label="All"
+            label="Alle"
             selected={actionFilter === "all"}
             onPress={() => setActionFilter("all")}
             small
           />
           <FilterChip
-            label="Pickups"
+            label="Abholungen"
             selected={actionFilter === "pickup"}
             onPress={() => setActionFilter("pickup")}
             color={Colors.light.statusInProgress}
             small
           />
           <FilterChip
-            label="Deliveries"
+            label="Lieferungen"
             selected={actionFilter === "delivery"}
             onPress={() => setActionFilter("delivery")}
             color={Colors.light.statusCompleted}
             small
           />
           <FilterChip
-            label="Cancelled"
+            label="Storniert"
             selected={actionFilter === "cancelled"}
             onPress={() => setActionFilter("cancelled")}
             color={Colors.light.statusCancelled}
@@ -209,7 +209,7 @@ export default function ActivityLogScreen() {
             <Feather name="download" size={16} color={Colors.light.accent} />
           )}
           <ThemedText type="small" style={styles.exportButtonText}>
-            Export CSV
+            CSV exportieren
           </ThemedText>
         </Pressable>
       </View>
