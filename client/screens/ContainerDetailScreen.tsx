@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import { View, StyleSheet, ScrollView, ActivityIndicator, Alert, Pressable } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRoute, RouteProp } from "@react-navigation/native";
@@ -9,9 +9,11 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { ProgressBar } from "@/components/ProgressBar";
+import { Button } from "@/components/Button";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ContainersStackParamList } from "@/navigation/ContainersStackNavigator";
 import { CustomerContainer, WarehouseContainer, FillHistory } from "@shared/schema";
+import { openMapsNavigation } from "@/lib/navigation";
 
 type RouteProps = RouteProp<ContainersStackParamList, "ContainerDetail">;
 
@@ -46,6 +48,24 @@ export default function ContainerDetailScreen() {
     if (percentage >= 80) return Colors.light.fillHigh;
     if (percentage >= 51) return Colors.light.fillMedium;
     return Colors.light.fillLow;
+  };
+
+  const handleNavigation = async () => {
+    const customerContainer = container as CustomerContainer;
+    if (!customerContainer?.latitude || !customerContainer?.longitude) {
+      Alert.alert(
+        "Navigation Unavailable",
+        "Location coordinates are not available for this container.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    await openMapsNavigation({
+      latitude: customerContainer.latitude,
+      longitude: customerContainer.longitude,
+      label: `${customerContainer.customerName} - ${customerContainer.location}`,
+    });
   };
 
   if (isLoading) {
@@ -169,6 +189,15 @@ export default function ContainerDetailScreen() {
                 <ThemedText type="body">{formatDate(customerContainer.lastEmptied)}</ThemedText>
               </View>
             </View>
+
+            {customerContainer.latitude && customerContainer.longitude ? (
+              <Pressable style={styles.navButton} onPress={handleNavigation}>
+                <Feather name="navigation" size={20} color={Colors.light.accent} />
+                <ThemedText type="body" style={styles.navButtonText}>
+                  Navigate to Location
+                </ThemedText>
+              </Pressable>
+            ) : null}
           </Card>
         )}
 
@@ -319,6 +348,21 @@ const styles = StyleSheet.create({
   infoLabel: {
     color: Colors.light.textSecondary,
     marginBottom: 2,
+  },
+  navButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: `${Colors.light.accent}15`,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.md,
+  },
+  navButtonText: {
+    color: Colors.light.accent,
+    fontWeight: "600",
   },
   qrCard: {
     backgroundColor: Colors.light.backgroundDefault,

@@ -24,6 +24,8 @@ export const customerContainers = pgTable("customer_containers", {
   id: varchar("id").primaryKey(),
   customerName: text("customer_name").notNull(),
   location: text("location").notNull(),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
   materialType: text("material_type").notNull(),
   lastEmptied: timestamp("last_emptied"),
   qrCode: text("qr_code").notNull().unique(),

@@ -8,6 +8,13 @@ function hashPassword(password: string): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.head("/api/health", (req, res) => {
+    res.status(200).end();
+  });
+
+  app.get("/api/health", (req, res) => {
+    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+  });
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -385,17 +392,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/activity-logs", async (req, res) => {
     try {
-      const { userId, containerId, action } = req.query;
-      const filters: { userId?: string; containerId?: string; action?: string } = {};
+      const { userId, containerId, action, startDate, endDate } = req.query;
+      const filters: { userId?: string; containerId?: string; action?: string; startDate?: Date; endDate?: Date } = {};
       
       if (userId) filters.userId = userId as string;
       if (containerId) filters.containerId = containerId as string;
       if (action) filters.action = action as string;
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
 
       const logs = await storage.getActivityLogs(Object.keys(filters).length > 0 ? filters : undefined);
       res.json(logs);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch activity logs" });
+    }
+  });
+
+  app.get("/api/activity-logs/export/csv", async (req, res) => {
+    try {
+      const { userId, containerId, action, startDate, endDate } = req.query;
+      const filters: { userId?: string; containerId?: string; action?: string; startDate?: Date; endDate?: Date } = {};
+      
+      if (userId) filters.userId = userId as string;
+      if (containerId) filters.containerId = containerId as string;
+      if (action) filters.action = action as string;
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+
+      const logs = await storage.getActivityLogs(Object.keys(filters).length > 0 ? filters : undefined);
+      const users = await storage.getUsers();
+      
+      const getUserName = (id: string) => {
+        const user = users.find(u => u.id === id);
+        return user?.name || "Unknown";
+      };
+
+      const csvHeader = "ID,Date,Time,Driver,Action,Container ID,Task ID,Details\n";
+      const csvRows = logs.map(log => {
+        const date = new Date(log.createdAt);
+        const dateStr = date.toLocaleDateString("en-US");
+        const timeStr = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+        const driverName = getUserName(log.userId).replace(/,/g, ";");
+        const action = log.action.replace(/,/g, ";");
+        const containerId = log.containerId?.replace(/,/g, ";") || "";
+        const taskId = log.taskId?.replace(/,/g, ";") || "";
+        const details = log.details?.replace(/,/g, ";").replace(/\n/g, " ") || "";
+        return `${log.id},${dateStr},${timeStr},${driverName},${action},${containerId},${taskId},${details}`;
+      }).join("\n");
+
+      const csv = csvHeader + csvRows;
+      
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=activity-log-${new Date().toISOString().split("T")[0]}.csv`);
+      res.send(csv);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to export activity logs" });
+    }
+  });
+
+  app.get("/api/analytics/driver-performance", async (req, res) => {
+    try {
+      const allTasks = await storage.getTasks();
+      const users = await storage.getUsers();
+      const drivers = users.filter(u => u.role === "driver");
+      
+      const now = new Date();
+      const today = now.toDateString();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - 7);
+
+      const driverStats = drivers.map(driver => {
+        const driverTasks = allTasks.filter(t => t.assignedTo === driver.id);
+        const completedTasks = driverTasks.filter(t => t.status === "completed");
+        const completedToday = completedTasks.filter(t => {
+          if (!t.deliveryTimestamp) return false;
+          return new Date(t.deliveryTimestamp).toDateString() === today;
+        });
+        const completedThisWeek = completedTasks.filter(t => {
+          if (!t.deliveryTimestamp) return false;
+          const deliveryDate = new Date(t.deliveryTimestamp);
+          return deliveryDate >= startOfWeek;
+        });
+
+        const avgDeliveryTime = completedTasks.length > 0 
+          ? completedTasks.reduce((sum, t) => {
+              if (t.pickupTimestamp && t.deliveryTimestamp) {
+                return sum + (new Date(t.deliveryTimestamp).getTime() - new Date(t.pickupTimestamp).getTime());
+              }
+              return sum;
+            }, 0) / completedTasks.length / (1000 * 60)
+          : 0;
+
+        const completionRate = driverTasks.length > 0 
+          ? Math.round((completedTasks.length / driverTasks.length) * 100)
+          : 0;
+
+        return {
+          id: driver.id,
+          name: driver.name,
+          email: driver.email,
+          totalAssigned: driverTasks.length,
+          totalCompleted: completedTasks.length,
+          completedToday: completedToday.length,
+          completedThisWeek: completedThisWeek.length,
+          inProgress: driverTasks.filter(t => t.status === "in_progress").length,
+          completionRate,
+          avgDeliveryTimeMinutes: Math.round(avgDeliveryTime),
+        };
+      });
+
+      const overallStats = {
+        totalDrivers: drivers.length,
+        activeDrivers: driverStats.filter(d => d.inProgress > 0 || d.completedToday > 0).length,
+        totalCompletedToday: driverStats.reduce((sum, d) => sum + d.completedToday, 0),
+        totalCompletedThisWeek: driverStats.reduce((sum, d) => sum + d.completedThisWeek, 0),
+        avgCompletionRate: driverStats.length > 0
+          ? Math.round(driverStats.reduce((sum, d) => sum + d.completionRate, 0) / driverStats.length)
+          : 0,
+      };
+
+      res.json({
+        drivers: driverStats,
+        overall: overallStats,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch driver performance" });
+    }
+  });
+
+  app.get("/api/analytics/fill-trends", async (req, res) => {
+    try {
+      const warehouseContainers = await storage.getWarehouseContainers();
+      const allTasks = await storage.getTasks();
+      
+      const now = new Date();
+      const daysAgo = (days: number) => {
+        const date = new Date(now);
+        date.setDate(date.getDate() - days);
+        return date;
+      };
+
+      const dailyData = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = daysAgo(i);
+        const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        
+        const dayTasks = allTasks.filter(t => {
+          if (!t.deliveryTimestamp) return false;
+          const taskDate = new Date(t.deliveryTimestamp);
+          return taskDate.toDateString() === date.toDateString();
+        });
+
+        const totalDelivered = dayTasks.reduce((sum, t) => {
+          const container = warehouseContainers.find(c => c.id === t.deliveryContainerID);
+          return sum + (container ? 50 : 0); // Estimate per delivery
+        }, 0);
+
+        dailyData.push({
+          date: dateStr,
+          deliveries: dayTasks.length,
+          volumeKg: totalDelivered,
+        });
+      }
+
+      const currentFillLevels = warehouseContainers.map(c => ({
+        id: c.id,
+        location: c.location,
+        materialType: c.materialType,
+        currentAmount: c.currentAmount,
+        maxCapacity: c.maxCapacity,
+        fillPercentage: Math.round((c.currentAmount / c.maxCapacity) * 100),
+      }));
+
+      const materialBreakdown = warehouseContainers.reduce((acc, c) => {
+        const existing = acc.find(m => m.material === c.materialType);
+        if (existing) {
+          existing.currentAmount += c.currentAmount;
+          existing.maxCapacity += c.maxCapacity;
+        } else {
+          acc.push({
+            material: c.materialType,
+            currentAmount: c.currentAmount,
+            maxCapacity: c.maxCapacity,
+          });
+        }
+        return acc;
+      }, [] as { material: string; currentAmount: number; maxCapacity: number }[]);
+
+      res.json({
+        dailyTrends: dailyData,
+        containerLevels: currentFillLevels,
+        materialBreakdown,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch analytics" });
     }
   });
 

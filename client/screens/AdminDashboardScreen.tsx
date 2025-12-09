@@ -208,6 +208,30 @@ export default function AdminDashboardScreen() {
               </ThemedText>
             </View>
           </Button>
+
+          <Button
+            style={styles.secondaryButton}
+            onPress={() => navigation.navigate("Analytics")}
+          >
+            <View style={styles.actionContent}>
+              <Feather name="bar-chart-2" size={20} color={Colors.light.primary} />
+              <ThemedText type="body" style={styles.secondaryText}>
+                Analytics
+              </ThemedText>
+            </View>
+          </Button>
+
+          <Button
+            style={styles.secondaryButton}
+            onPress={() => navigation.navigate("DriverPerformance")}
+          >
+            <View style={styles.actionContent}>
+              <Feather name="award" size={20} color={Colors.light.primary} />
+              <ThemedText type="body" style={styles.secondaryText}>
+                Driver Performance
+              </ThemedText>
+            </View>
+          </Button>
         </View>
 
         <Pressable

@@ -6,6 +6,8 @@ import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { Colors } from "@/constants/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { NetworkStatusBar } from "@/components/NetworkStatusBar";
 
 export type RootStackParamList = {
   Main: undefined;
@@ -13,6 +15,20 @@ export type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+function MainWithStatusBar() {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={styles.mainContainer}>
+      <View style={{ paddingTop: insets.top, backgroundColor: Colors.light.backgroundDefault }}>
+        <NetworkStatusBar />
+      </View>
+      <View style={styles.content}>
+        <MainTabNavigator />
+      </View>
+    </View>
+  );
+}
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
@@ -31,7 +47,7 @@ export default function RootStackNavigator() {
       {isAuthenticated ? (
         <Stack.Screen
           name="Main"
-          component={MainTabNavigator}
+          component={MainWithStatusBar}
           options={{ headerShown: false }}
         />
       ) : (
@@ -51,5 +67,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: Colors.light.backgroundRoot,
+  },
+  mainContainer: {
+    flex: 1,
+    backgroundColor: Colors.light.backgroundRoot,
+  },
+  content: {
+    flex: 1,
   },
 });

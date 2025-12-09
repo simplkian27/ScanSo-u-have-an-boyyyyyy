@@ -6,6 +6,8 @@ import ManageDriversScreen from "@/screens/ManageDriversScreen";
 import ManageContainersScreen from "@/screens/ManageContainersScreen";
 import CreateTaskScreen from "@/screens/CreateTaskScreen";
 import ActivityLogScreen from "@/screens/ActivityLogScreen";
+import AnalyticsScreen from "@/screens/AnalyticsScreen";
+import DriverPerformanceScreen from "@/screens/DriverPerformanceScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -16,6 +18,8 @@ export type ProfileStackParamList = {
   ManageContainers: undefined;
   CreateTask: undefined;
   ActivityLog: undefined;
+  Analytics: undefined;
+  DriverPerformance: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -52,6 +56,16 @@ export default function ProfileStackNavigator() {
             name="ActivityLog"
             component={ActivityLogScreen}
             options={{ headerTitle: "Activity Log" }}
+          />
+          <Stack.Screen
+            name="Analytics"
+            component={AnalyticsScreen}
+            options={{ headerTitle: "Analytics" }}
+          />
+          <Stack.Screen
+            name="DriverPerformance"
+            component={DriverPerformanceScreen}
+            options={{ headerTitle: "Driver Performance" }}
           />
           <Stack.Screen
             name="Profile"

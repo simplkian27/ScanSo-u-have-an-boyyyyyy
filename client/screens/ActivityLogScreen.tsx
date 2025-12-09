@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator } from "react-native";
+import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Pressable, Alert, Platform, Linking } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
@@ -10,6 +10,9 @@ import { Card } from "@/components/Card";
 import { FilterChip } from "@/components/FilterChip";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ActivityLog, User } from "@shared/schema";
+import { getApiUrl } from "@/lib/query-client";
+import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system";
 
 type UserWithoutPassword = Omit<User, "password">;
 type ActionFilter = "all" | "pickup" | "delivery" | "cancelled";
@@ -26,6 +29,7 @@ export default function ActivityLogScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data: logs = [], isLoading, refetch, isRefetching } = useQuery<ActivityLog[]>({
     queryKey: ["/api/activity-logs"],
@@ -38,6 +42,50 @@ export default function ActivityLogScreen() {
   const getUserName = (userId: string) => {
     const user = users.find((u) => u.id === userId);
     return user?.name || "Unknown User";
+  };
+
+  const handleExportCSV = async () => {
+    if (logs.length === 0) {
+      Alert.alert("No Data", "There are no activity logs to export.");
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const filterParam = actionFilter !== "all" ? `?action=${actionFilter}` : "";
+      const exportUrl = `${getApiUrl()}/api/activity-logs/export/csv${filterParam}`;
+      
+      if (Platform.OS === "web") {
+        await Linking.openURL(exportUrl);
+        setIsExporting(false);
+        return;
+      }
+
+      const fileName = `activity-log-${new Date().toISOString().split("T")[0]}.csv`;
+      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+      
+      const downloadResult = await FileSystem.downloadAsync(exportUrl, fileUri);
+      
+      if (downloadResult.status === 200) {
+        const isSharingAvailable = await Sharing.isAvailableAsync();
+        if (isSharingAvailable) {
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType: "text/csv",
+            dialogTitle: "Export Activity Log",
+            UTI: "public.comma-separated-values-text",
+          });
+        } else {
+          Alert.alert("Export Complete", `File saved to ${fileName}`);
+        }
+      } else {
+        throw new Error("Download failed");
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      Alert.alert("Export Failed", "Failed to export activity logs. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const filteredLogs = logs.filter((log) => {
@@ -121,33 +169,49 @@ export default function ActivityLogScreen() {
   return (
     <ThemedView style={styles.container}>
       <View style={[styles.filterContainer, { marginTop: headerHeight }]}>
-        <FilterChip
-          label="All"
-          selected={actionFilter === "all"}
-          onPress={() => setActionFilter("all")}
-          small
-        />
-        <FilterChip
-          label="Pickups"
-          selected={actionFilter === "pickup"}
-          onPress={() => setActionFilter("pickup")}
-          color={Colors.light.statusInProgress}
-          small
-        />
-        <FilterChip
-          label="Deliveries"
-          selected={actionFilter === "delivery"}
-          onPress={() => setActionFilter("delivery")}
-          color={Colors.light.statusCompleted}
-          small
-        />
-        <FilterChip
-          label="Cancelled"
-          selected={actionFilter === "cancelled"}
-          onPress={() => setActionFilter("cancelled")}
-          color={Colors.light.statusCancelled}
-          small
-        />
+        <View style={styles.filterRow}>
+          <FilterChip
+            label="All"
+            selected={actionFilter === "all"}
+            onPress={() => setActionFilter("all")}
+            small
+          />
+          <FilterChip
+            label="Pickups"
+            selected={actionFilter === "pickup"}
+            onPress={() => setActionFilter("pickup")}
+            color={Colors.light.statusInProgress}
+            small
+          />
+          <FilterChip
+            label="Deliveries"
+            selected={actionFilter === "delivery"}
+            onPress={() => setActionFilter("delivery")}
+            color={Colors.light.statusCompleted}
+            small
+          />
+          <FilterChip
+            label="Cancelled"
+            selected={actionFilter === "cancelled"}
+            onPress={() => setActionFilter("cancelled")}
+            color={Colors.light.statusCancelled}
+            small
+          />
+        </View>
+        <Pressable
+          style={styles.exportButton}
+          onPress={handleExportCSV}
+          disabled={isExporting || logs.length === 0}
+        >
+          {isExporting ? (
+            <ActivityIndicator size="small" color={Colors.light.accent} />
+          ) : (
+            <Feather name="download" size={16} color={Colors.light.accent} />
+          )}
+          <ThemedText type="small" style={styles.exportButtonText}>
+            Export CSV
+          </ThemedText>
+        </Pressable>
       </View>
 
       {isLoading ? (
@@ -184,12 +248,31 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.backgroundRoot,
   },
   filterContainer: {
-    flexDirection: "row",
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     gap: Spacing.sm,
     backgroundColor: Colors.light.backgroundDefault,
+  },
+  filterRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
     flexWrap: "wrap",
+  },
+  exportButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    backgroundColor: `${Colors.light.accent}15`,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.sm,
+    alignSelf: "flex-start",
+  },
+  exportButtonText: {
+    color: Colors.light.accent,
+    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,

@@ -15,7 +15,8 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { TasksStackParamList } from "@/navigation/TasksStackNavigator";
-import { Task } from "@shared/schema";
+import { Task, CustomerContainer } from "@shared/schema";
+import { openMapsNavigation } from "@/lib/navigation";
 
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, "Tasks">;
 
@@ -35,6 +36,25 @@ export default function TasksScreen() {
   const { data: tasks = [], isLoading, refetch, isRefetching } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
   });
+
+  const { data: containers = [] } = useQuery<CustomerContainer[]>({
+    queryKey: ["/api/containers/customer"],
+  });
+
+  const getContainerById = (containerId: string) => {
+    return containers.find((c) => c.id === containerId);
+  };
+
+  const handleQuickNavigation = async (containerId: string) => {
+    const container = getContainerById(containerId);
+    if (container?.latitude && container?.longitude) {
+      await openMapsNavigation({
+        latitude: container.latitude,
+        longitude: container.longitude,
+        label: `${container.customerName} - ${container.location}`,
+      });
+    }
+  };
 
   const filteredTasks = tasks.filter((task) => {
     if (taskFilter === "mine" && task.assignedTo !== user?.id) return false;
@@ -63,54 +83,81 @@ export default function TasksScreen() {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   };
 
-  const renderTask = ({ item }: { item: Task }) => (
-    <Card
-      style={styles.taskCard}
-      onPress={() => navigation.navigate("TaskDetail", { taskId: item.id })}
-    >
-      <View style={styles.taskHeader}>
-        <View style={styles.taskIdContainer}>
-          <Feather name="package" size={20} color={Colors.light.primary} />
-          <ThemedText type="h4" style={styles.taskId}>
-            {item.containerID}
-          </ThemedText>
-        </View>
-        <StatusBadge status={item.status} />
-      </View>
-      
-      <View style={styles.taskDetails}>
-        <View style={styles.detailRow}>
-          <Feather name="map-pin" size={16} color={Colors.light.textSecondary} />
-          <ThemedText type="body" style={styles.detailText}>
-            Location details
-          </ThemedText>
-        </View>
-        <View style={styles.detailRow}>
-          <Feather name="clock" size={16} color={Colors.light.textSecondary} />
-          <ThemedText type="small" style={styles.detailText}>
-            {formatDate(item.scheduledTime)}
-          </ThemedText>
-        </View>
-        {item.materialType ? (
-          <View style={styles.detailRow}>
-            <Feather name="tag" size={16} color={Colors.light.textSecondary} />
-            <ThemedText type="small" style={styles.detailText}>
-              {item.materialType}
+  const renderTask = ({ item }: { item: Task }) => {
+    const container = getContainerById(item.containerID);
+    const hasLocation = container?.latitude && container?.longitude;
+
+    return (
+      <Card
+        style={styles.taskCard}
+        onPress={() => navigation.navigate("TaskDetail", { taskId: item.id })}
+      >
+        <View style={styles.taskHeader}>
+          <View style={styles.taskIdContainer}>
+            <Feather name="package" size={20} color={Colors.light.primary} />
+            <ThemedText type="h4" style={styles.taskId}>
+              {item.containerID}
             </ThemedText>
           </View>
-        ) : null}
-      </View>
+          <StatusBadge status={item.status} />
+        </View>
+        
+        <View style={styles.taskDetails}>
+          <View style={styles.detailRow}>
+            <Feather name="map-pin" size={16} color={Colors.light.textSecondary} />
+            <ThemedText type="body" style={styles.detailText} numberOfLines={1}>
+              {container?.location || "Loading..."}
+            </ThemedText>
+          </View>
+          {container?.customerName ? (
+            <View style={styles.detailRow}>
+              <Feather name="home" size={16} color={Colors.light.textSecondary} />
+              <ThemedText type="small" style={styles.detailText}>
+                {container.customerName}
+              </ThemedText>
+            </View>
+          ) : null}
+          <View style={styles.detailRow}>
+            <Feather name="clock" size={16} color={Colors.light.textSecondary} />
+            <ThemedText type="small" style={styles.detailText}>
+              {formatDate(item.scheduledTime)}
+            </ThemedText>
+          </View>
+          {item.materialType ? (
+            <View style={styles.detailRow}>
+              <Feather name="tag" size={16} color={Colors.light.textSecondary} />
+              <ThemedText type="small" style={styles.detailText}>
+                {item.materialType}
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
 
-      <View style={styles.taskFooter}>
-        <Pressable style={styles.detailsButton}>
-          <ThemedText type="small" style={styles.detailsButtonText}>
-            View Details
-          </ThemedText>
-          <Feather name="chevron-right" size={16} color={Colors.light.accent} />
-        </Pressable>
-      </View>
-    </Card>
-  );
+        <View style={styles.taskFooter}>
+          {hasLocation && (item.status === "open" || item.status === "in_progress") ? (
+            <Pressable 
+              style={styles.navButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleQuickNavigation(item.containerID);
+              }}
+            >
+              <Feather name="navigation" size={16} color={Colors.light.accent} />
+              <ThemedText type="small" style={styles.navButtonText}>
+                Navigate
+              </ThemedText>
+            </Pressable>
+          ) : null}
+          <Pressable style={styles.detailsButton}>
+            <ThemedText type="small" style={styles.detailsButtonText}>
+              View Details
+            </ThemedText>
+            <Feather name="chevron-right" size={16} color={Colors.light.accent} />
+          </Pressable>
+        </View>
+      </Card>
+    );
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -263,7 +310,22 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.light.border,
     paddingTop: Spacing.md,
-    alignItems: "flex-end",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  navButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: `${Colors.light.accent}15`,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  navButtonText: {
+    color: Colors.light.accent,
+    fontWeight: "600",
   },
   detailsButton: {
     flexDirection: "row",

@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator, Linking, Platform } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { TasksStackParamList } from "@/navigation/TasksStackNavigator";
 import { Task, CustomerContainer } from "@shared/schema";
+import { openMapsNavigation } from "@/lib/navigation";
 
 type RouteProps = RouteProp<TasksStackParamList, "TaskDetail">;
 
@@ -44,23 +45,21 @@ export default function TaskDetailScreen() {
     });
   };
 
-  const openMaps = () => {
-    const lat = 52.520008;
-    const lng = 13.404954;
-    const label = container?.location || "Container Location";
-    
-    const scheme = Platform.select({
-      ios: "maps:",
-      android: "geo:",
-    });
-    const url = Platform.select({
-      ios: `${scheme}?q=${label}&ll=${lat},${lng}`,
-      android: `${scheme}${lat},${lng}?q=${lat},${lng}(${label})`,
-    });
-
-    if (url) {
-      Linking.openURL(url);
+  const handleNavigation = async () => {
+    if (!container?.latitude || !container?.longitude) {
+      Alert.alert(
+        "Navigation Unavailable",
+        "Location coordinates are not available for this container.",
+        [{ text: "OK" }]
+      );
+      return;
     }
+
+    await openMapsNavigation({
+      latitude: container.latitude,
+      longitude: container.longitude,
+      label: `${container.customerName} - ${container.location}`,
+    });
   };
 
   const goToScanner = () => {
@@ -205,7 +204,7 @@ export default function TaskDetailScreen() {
 
         {task.status === "open" || task.status === "in_progress" ? (
           <View style={styles.actions}>
-            <Button onPress={openMaps} style={styles.secondaryButton}>
+            <Button onPress={handleNavigation} style={styles.secondaryButton}>
               <View style={styles.buttonContent}>
                 <Feather name="navigation" size={20} color={Colors.light.primary} />
                 <ThemedText type="body" style={{ color: Colors.light.primary, fontWeight: "600" }}>
