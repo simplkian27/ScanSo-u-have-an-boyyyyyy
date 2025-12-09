@@ -7,12 +7,10 @@ import {
   ScrollView,
   Text,
   Modal,
+  useColorScheme,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { ThemedView } from "@/components/ThemedView";
-import { ThemedText } from "@/components/ThemedText";
-import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Fonts } from "@/constants/theme";
+import { Spacing, BorderRadius, Fonts, Colors } from "@/constants/theme";
 
 export type ErrorFallbackProps = {
   error: Error;
@@ -20,7 +18,9 @@ export type ErrorFallbackProps = {
 };
 
 export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
-  const { theme } = useTheme();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+  const theme = isDark ? Colors.dark : Colors.light;
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   const handleRestart = async () => {
@@ -41,7 +41,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       {__DEV__ ? (
         <Pressable
           onPress={() => setIsModalVisible(true)}
@@ -58,31 +58,28 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
       ) : null}
 
       <View style={styles.content}>
-        <ThemedText type="h1" style={styles.title}>
+        <Text style={[styles.title, { color: theme.text }]}>
           Something went wrong
-        </ThemedText>
+        </Text>
 
-        <ThemedText type="body" style={styles.message}>
+        <Text style={[styles.message, { color: theme.textSecondary }]}>
           Please reload the app to continue.
-        </ThemedText>
+        </Text>
 
         <Pressable
           onPress={handleRestart}
           style={({ pressed }) => [
             styles.button,
             {
-              backgroundColor: theme.link,
+              backgroundColor: theme.primary,
               opacity: pressed ? 0.9 : 1,
               transform: [{ scale: pressed ? 0.98 : 1 }],
             },
           ]}
         >
-          <ThemedText
-            type="body"
-            style={[styles.buttonText, { color: theme.buttonText }]}
-          >
+          <Text style={[styles.buttonText, { color: theme.textOnPrimary }]}>
             Try Again
-          </ThemedText>
+          </Text>
         </Pressable>
       </View>
 
@@ -94,11 +91,11 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
           onRequestClose={() => setIsModalVisible(false)}
         >
           <View style={styles.modalOverlay}>
-            <ThemedView style={styles.modalContainer}>
+            <View style={[styles.modalContainer, { backgroundColor: theme.backgroundDefault }]}>
               <View style={styles.modalHeader}>
-                <ThemedText type="h2" style={styles.modalTitle}>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>
                   Error Details
-                </ThemedText>
+                </Text>
                 <Pressable
                   onPress={() => setIsModalVisible(false)}
                   style={({ pressed }) => [
@@ -118,7 +115,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
                 <View
                   style={[
                     styles.errorContainer,
-                    { backgroundColor: theme.backgroundDefault },
+                    { backgroundColor: theme.backgroundSecondary },
                   ]}
                 >
                   <Text
@@ -135,11 +132,11 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
                   </Text>
                 </View>
               </ScrollView>
-            </ThemedView>
+            </View>
           </View>
         </Modal>
       ) : null}
-    </ThemedView>
+    </View>
   );
 }
 
@@ -161,11 +158,13 @@ const styles = StyleSheet.create({
   },
   title: {
     textAlign: "center",
+    fontSize: 28,
+    fontWeight: "700",
     lineHeight: 40,
   },
   message: {
     textAlign: "center",
-    opacity: 0.7,
+    fontSize: 16,
     lineHeight: 24,
   },
   topButton: {
@@ -221,6 +220,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(128, 128, 128, 0.2)",
   },
   modalTitle: {
+    fontSize: 20,
     fontWeight: "600",
   },
   closeButton: {
