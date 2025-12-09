@@ -1,38 +1,100 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   TextInput as RNTextInput,
   StyleSheet,
   TextInputProps as RNTextInputProps,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  interpolateColor,
+} from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
+import { Spacing, BorderRadius, Typography, AnimationConfig } from "@/constants/theme";
 
 interface TextInputProps extends RNTextInputProps {
   label?: string;
   error?: string;
+  helper?: string;
 }
 
-export function TextInput({ label, error, style, ...props }: TextInputProps) {
+const AnimatedView = Animated.createAnimatedComponent(View);
+
+export function TextInput({ label, error, helper, style, onFocus, onBlur, ...props }: TextInputProps) {
+  const { theme, isDark } = useTheme();
+  const [isFocused, setIsFocused] = useState(false);
+  const focusAnim = useSharedValue(0);
+
+  const handleFocus = (e: any) => {
+    setIsFocused(true);
+    focusAnim.value = withTiming(1, { duration: AnimationConfig.duration.fast });
+    onFocus?.(e);
+  };
+
+  const handleBlur = (e: any) => {
+    setIsFocused(false);
+    focusAnim.value = withTiming(0, { duration: AnimationConfig.duration.fast });
+    onBlur?.(e);
+  };
+
+  const borderColor = error ? theme.error : theme.border;
+  const focusBorderColor = error ? theme.error : theme.accent;
+
+  const animatedWrapperStyle = useAnimatedStyle(() => {
+    return {
+      borderColor: interpolateColor(
+        focusAnim.value,
+        [0, 1],
+        [borderColor, focusBorderColor]
+      ),
+      borderWidth: error ? 2 : 1.5,
+    };
+  });
+
   return (
     <View style={styles.container}>
       {label ? (
-        <ThemedText type="small" style={styles.label}>
+        <ThemedText 
+          type="small" 
+          style={[
+            styles.label, 
+            { color: error ? theme.error : isFocused ? theme.accent : theme.textSecondary }
+          ]}
+        >
           {label}
         </ThemedText>
       ) : null}
-      <RNTextInput
+      <AnimatedView
         style={[
-          styles.input,
-          error ? styles.inputError : null,
-          style,
+          styles.inputWrapper,
+          {
+            backgroundColor: isDark ? theme.cardSurface : "#FFFFFF",
+          },
+          animatedWrapperStyle,
         ]}
-        placeholderTextColor={Colors.light.textSecondary}
-        {...props}
-      />
+      >
+        <RNTextInput
+          style={[
+            styles.input,
+            { color: theme.text },
+            style,
+          ]}
+          placeholderTextColor={theme.textTertiary}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          {...props}
+        />
+      </AnimatedView>
       {error ? (
-        <ThemedText type="small" style={styles.errorText}>
+        <ThemedText type="caption" style={[styles.errorText, { color: theme.error }]}>
           {error}
+        </ThemedText>
+      ) : helper ? (
+        <ThemedText type="caption" style={[styles.helperText, { color: theme.textTertiary }]}>
+          {helper}
         </ThemedText>
       ) : null}
     </View>
@@ -41,26 +103,28 @@ export function TextInput({ label, error, style, ...props }: TextInputProps) {
 
 const styles = StyleSheet.create({
   container: {
-    gap: Spacing.xs,
+    gap: Spacing.xs + 2,
   },
   label: {
-    fontWeight: "500",
-    color: Colors.light.text,
+    fontWeight: "600",
+    letterSpacing: Typography.label.letterSpacing,
+    marginLeft: Spacing.xs,
+  },
+  inputWrapper: {
+    height: Spacing.inputHeight,
+    borderRadius: BorderRadius.md,
+    justifyContent: "center",
   },
   input: {
-    height: Spacing.inputHeight,
-    backgroundColor: Colors.light.backgroundDefault,
-    borderRadius: BorderRadius.xs,
+    flex: 1,
     paddingHorizontal: Spacing.lg,
-    fontSize: 16,
-    color: Colors.light.text,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-  inputError: {
-    borderColor: Colors.light.error,
+    fontSize: Typography.body.fontSize,
+    fontWeight: "400",
   },
   errorText: {
-    color: Colors.light.error,
+    marginLeft: Spacing.xs,
+  },
+  helperText: {
+    marginLeft: Spacing.xs,
   },
 });

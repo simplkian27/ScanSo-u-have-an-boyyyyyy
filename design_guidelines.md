@@ -1,251 +1,287 @@
-# ContainerFlow Design Guidelines
+# ContainerFlow Design System v2.0
 
-## Industrial Design Theme
+## Design-Philosophie
 
-Professional mobile waste container management app for iOS and Android with driver/admin roles, QR scanning, real-time tracking, and industrial-grade UI optimized for outdoor use and work glove operation.
+Professionelles, industrietaugliches Design für die Abfallcontainer-Verwaltung. Optimiert für Outdoor-Einsatz mit Arbeitshandschuhen, hohe Lesbarkeit bei allen Lichtverhältnissen und schnelle, fehlertolerante Bedienung.
 
-## Color Palette
+## Farbpalette
 
-### Primary Colors
-- **Primary (Navy Blue)**: `#1F3650` - Headers, navigation, main buttons, titles
-- **Primary Light**: `#2D4A6A` - Hover/pressed states
-- **Primary Dark**: `#152538` - Deep accents
-- **Accent (Safety Orange)**: `#FF6B2C` - Call-to-action buttons, icons, highlights
-- **Accent Light**: `#FF8F5C` - Hover/pressed states
-- **Accent Dark**: `#E55A1F` - Active states
+### Primärfarben
 
-### Background Colors (Light Mode)
-- **Background Root**: `#F5F7FA` - App background (blue-tinted gray)
-- **Background Default**: `#FFFFFF` - Cards, content areas
-- **Background Secondary**: `#E8ECF1` - Secondary surfaces
-- **Background Tertiary**: `#D0D7E0` - Tertiary surfaces, dividers
+| Name | Hell-Modus | Dunkel-Modus | Verwendung |
+|------|------------|--------------|------------|
+| **Primary (Navy Blue)** | `#1F3650` | `#3B6B9C` | Header, Navigation, Hauptaktionen |
+| **Primary Light** | `#2D4A6A` | `#5088BC` | Hover-/Pressed-States |
+| **Primary Dark** | `#152538` | `#1F3650` | Tiefe Akzente |
+| **Accent (Safety Orange)** | `#FF6B2C` | `#FF6B2C` | CTAs, Icons, Highlights |
+| **Accent Light** | `#FF8F5C` | `#FF8F5C` | Hover-States |
+| **Accent Dark** | `#E55A1F` | `#E55A1F` | Pressed-States |
 
-### Background Colors (Dark Mode)
-- **Background Root**: `#0C1220` - Deep navy-black
-- **Background Default**: `#131B2B` - Card backgrounds
-- **Background Secondary**: `#1C2638` - Elevated surfaces
-- **Background Tertiary**: `#263244` - Dividers, borders
-- **Card Elevated**: `#243040` - Floating cards
+### Hintergrundfarben
 
-### Text Colors (Light Mode)
-- **Text Primary**: `#1A2433` - Main text (dark navy-gray)
-- **Text Secondary**: `#4A5568` - Secondary labels
-- **Text Tertiary**: `#6B7888` - Hints, placeholders
-- **Text on Primary/Accent**: `#FFFFFF`
+| Name | Hell-Modus | Dunkel-Modus |
+|------|------------|--------------|
+| **Background Root** | `#F8FAFC` | `#0F172A` |
+| **Background Default** | `#F1F5F9` | `#1E293B` |
+| **Background Secondary** | `#E2E8F0` | `#334155` |
+| **Background Tertiary** | `#CBD5E1` | `#475569` |
+| **Card Surface** | `#FFFFFF` | `#1E293B` |
+| **Card Surface Elevated** | `#FFFFFF` | `#334155` |
 
-### Text Colors (Dark Mode)
-- **Text Primary**: `#F1F5F9` - Main text
-- **Text Secondary**: `#94A3B8` - Secondary labels
-- **Text Tertiary**: `#64748B` - Hints, placeholders
+### Textfarben
 
-### Status Colors (WCAG AA Compliant)
-- **Success (Green)**: Light `#059669` / Dark `#10B981`
-- **Warning (Amber)**: Light `#D97706` / Dark `#F59E0B`
-- **Error (Red)**: Light `#DC2626` / Dark `#EF4444`
-- **Info (Blue)**: Light `#2563EB` / Dark `#3B82F6`
-- **Idle (Slate)**: Light `#7A8694` / Dark `#64748B`
-- **Open (Sky Blue)**: Light `#5A9BD5` / Dark `#60A5FA`
-- **In Progress (Blue)**: Light `#2563EB` / Dark `#3B82F6`
-- **Completed (Emerald)**: Light `#059669` / Dark `#10B981`
-- **Cancelled (Red)**: Light `#DC2626` / Dark `#EF4444`
+| Name | Hell-Modus | Dunkel-Modus |
+|------|------------|--------------|
+| **Text Primary** | `#1E293B` | `#F8FAFC` |
+| **Text Secondary** | `#64748B` | `#94A3B8` |
+| **Text Tertiary** | `#94A3B8` | `#64748B` |
+| **Text on Primary/Accent** | `#FFFFFF` | `#FFFFFF` |
 
-### Fill Level Colors
-- **Low (0-50%)**: Green (`#059669` / `#10B981`)
-- **Medium (51-79%)**: Amber (`#D97706` / `#F59E0B`)
-- **High (80-99%)**: Red (`#DC2626` / `#EF4444`)
-- **Critical (100%)**: Dark Red (`#991B1B` / `#DC2626`)
+### Statusfarben
 
-## Typography
+| Status | Hell-Modus | Dunkel-Modus | Textfarbe |
+|--------|------------|--------------|-----------|
+| **Offen** | `#4A90A4` | `#5DADE2` | Weiß |
+| **In Bearbeitung** | `#F5A623` | `#F7B731` | Dunkel (#1E293B) |
+| **Erledigt** | `#27AE60` | `#2ECC71` | Weiß |
+| **Storniert** | `#E74C3C` | `#E74C3C` | Weiß |
 
-### Font Weights
-- **Headings**: 600-700 (Semi-bold to Bold)
-- **Body Text**: 400 (Regular)
-- **Labels**: 600 (Semi-bold)
-- **Buttons**: 700 (Bold)
-- **Captions**: 500-700 (Medium to Bold)
+### Füllstand-Farben
 
-### Font Sizes with Line Heights
-- **H1**: 32px / 40px line-height
-- **H2**: 26px / 34px line-height
-- **H3**: 22px / 28px line-height
-- **H4**: 18px / 24px line-height
-- **Body**: 16px / 24px line-height
-- **Small**: 14px / 20px line-height
-- **Caption**: 12px / 16px line-height
-- **Button**: 15px, letter-spacing 0.3
-- **Label**: 13px, letter-spacing 0.4
+| Level | Hell-Modus | Dunkel-Modus | Bereich |
+|-------|------------|--------------|---------|
+| **Niedrig** | `#27AE60` | `#2ECC71` | 0–50% |
+| **Mittel** | `#F5A623` | `#F7B731` | 51–79% |
+| **Hoch** | `#E74C3C` | `#E74C3C` | 80–99% |
+| **Kritisch** | `#991B1B` | `#DC2626` | 100% |
 
-## Spacing and Layout
+### Rahmen-/Border-Farben
 
-### Touch Targets (Glove-Friendly)
-- **Minimum Touch Target**: 48dp (WCAG requirement + glove compatibility)
-- **Primary Button Height**: 56dp
-- **Secondary Button Height**: 48dp
-- **Input Height**: 52dp
-- **Tab Bar Height**: 64dp
-- **List Item Height**: 72dp (compact: 56dp)
-- **Filter Chip Height**: 44dp
-- **Status Badge Height**: 28dp
+| Name | Hell-Modus | Dunkel-Modus |
+|------|------------|--------------|
+| **Border** | `#CBD5E1` | `#475569` |
+| **Border Light** | `#E2E8F0` | `#334155` |
+| **Card Border** | `#E2E8F0` | `#334155` |
+| **Divider** | `#E2E8F0` | `#334155` |
 
-### Spacing Scale
-- xs: 4px
-- sm: 8px
-- md: 12px
-- lg: 16px
-- xl: 20px
-- 2xl: 24px
-- 3xl: 32px
-- 4xl: 40px
-- 5xl: 48px
-- 6xl: 64px
+### Feedback-Farben
 
-### Border Radius (Softer, Modern)
-- xs: 6px - Small badges
-- sm: 10px - Chips, small cards
-- md: 14px - Buttons, inputs
-- lg: 18px - Cards
-- xl: 22px - Modal corners
-- 2xl: 28px - Large cards
-- 3xl: 36px - Full-width panels
+| Name | Hell-Modus | Dunkel-Modus |
+|------|------------|--------------|
+| **Error** | `#E74C3C` | `#EF4444` |
+| **Error Light** | `#FEE2E2` | `#450A0A` |
+| **Warning** | `#F5A623` | `#F59E0B` |
+| **Warning Light** | `#FEF3C7` | `#451A03` |
+| **Success** | `#27AE60` | `#2ECC71` |
+| **Success Light** | `#D1FAE5` | `#052E16` |
+| **Info** | `#4A90A4` | `#5DADE2` |
+| **Info Light** | `#DBEAFE` | `#172554` |
 
-## Components
+---
+
+## Typografie
+
+### Schriftskala
+
+| Element | Größe | Gewicht | Zeilenhöhe | Verwendung |
+|---------|-------|---------|------------|------------|
+| **H1** | 32px | Bold (700) | 38px | Große Überschriften |
+| **H2** | 28px | Bold (700) | 34px | Seitenüberschriften |
+| **H3** | 24px | SemiBold (600) | 31px | Abschnittsüberschriften |
+| **H4** | 20px | SemiBold (600) | 26px | Card-Titel |
+| **Body** | 16px | Regular (400) | 24px | Fließtext |
+| **Body Bold** | 16px | SemiBold (600) | 24px | Hervorgehobener Text |
+| **Small** | 14px | Regular (400) | 20px | Sekundärtext |
+| **Small Bold** | 14px | SemiBold (600) | 20px | Labels |
+| **Caption** | 12px | Regular (400) | 17px | Hilfstext |
+| **Caption Bold** | 12px | Bold (700) | 17px | Badges |
+| **Button** | 16px | Bold (700) | – | Buttons, Letter-Spacing: 0.3 |
+| **Label** | 13px | SemiBold (600) | – | Form-Labels, Letter-Spacing: 0.4 |
+
+### Schriftfamilie
+
+- **iOS**: San Francisco (System)
+- **Android**: Roboto (System)
+- **Web**: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto
+
+---
+
+## Spacing-System
+
+| Token | Wert | Verwendung |
+|-------|------|------------|
+| **xs** | 4px | Minimale Abstände |
+| **sm** | 8px | Kleine Abstände |
+| **md** | 12px | Mittlere Abstände |
+| **lg** | 16px | Standard-Abstände |
+| **xl** | 20px | Große Abstände |
+| **2xl** | 24px | Section-Abstände |
+| **3xl** | 32px | Container-Padding |
+| **4xl** | 40px | Screen-Padding |
+| **5xl** | 48px | Große Bereiche |
+| **6xl** | 64px | Maximale Abstände |
+
+---
+
+## Border-Radius
+
+| Token | Wert | Verwendung |
+|-------|------|------------|
+| **xs** | 6px | Kleine Badges |
+| **sm** | 10px | Chips, kleine Cards |
+| **md** | 12px | Buttons, Inputs |
+| **lg** | 16px | Standard-Cards |
+| **xl** | 20px | Modal-Ecken |
+| **2xl** | 24px | Große Cards |
+| **3xl** | 32px | Full-Width Panels |
+| **full** | 9999px | Pills, runde Buttons |
+
+---
+
+## Touch-Targets (Glove-Friendly)
+
+| Element | Mindesthöhe | Empfohlen |
+|---------|-------------|-----------|
+| **Minimum Touch Target** | 48dp | – |
+| **Primary Button** | 56dp | 56dp |
+| **Secondary Button** | 48dp | 48dp |
+| **Input Field** | 56dp | 56dp |
+| **Tab Bar** | 64dp | 64dp |
+| **List Item** | 72dp | 72dp |
+| **List Item Compact** | 56dp | 56dp |
+| **Filter Chip** | 44dp | 44dp |
+| **Status Badge** | 28dp | 28dp |
+| **Icon Button** | 48dp | 48dp |
+
+---
+
+## Komponenten
 
 ### Buttons
-- **Primary Button**: Orange accent (`#FF6B2C`), white text, 56dp height, md radius
-- **Secondary Button**: White background, 2px primary border, primary text
-- **Tertiary/Text Button**: No background, accent or primary text
-- **Disabled**: 50% opacity, no interaction
-- **Press State**: Scale 0.97, opacity 0.85
+
+| Variante | Hintergrund | Text | Border |
+|----------|-------------|------|--------|
+| **Primary** | Accent Orange | Weiß | Keine |
+| **Secondary** | Transparent | Primary Navy | 2px Primary |
+| **Tertiary** | Background Secondary | Text Primary | Keine |
+| **Danger** | Error Red | Weiß | Keine |
+
+- Höhe: 56dp (default), 48dp (small)
+- Border-Radius: md (12px)
+- Press-Animation: Scale 0.97
 
 ### Cards
-- White/dark surface background
-- 1px border (light: `#E2E8F0`, dark: `#263244`)
-- Border radius: lg (18px)
-- Padding: 16-20px
-- Elevated cards: slightly lighter background in dark mode
+
+| Variante | Hintergrund | Border |
+|----------|-------------|--------|
+| **Default** | Card Surface | 1px Card Border |
+| **Elevated** | Card Surface Elevated (dark: heller) | Keine |
+| **Outlined** | Transparent | 1.5px Border |
+| **Filled** | Background Secondary | Keine |
+
+- Border-Radius: lg (16px)
+- Padding: 16px (default), 20px (large)
 
 ### Status Badges
-- Height: 28dp
-- Horizontal padding: 12px
-- Border radius: sm (10px)
-- Font: 12px, weight 700, uppercase
-- Letter-spacing: 0.4
+
+- Form: Pill (Border-Radius: full)
+- Höhe: 28dp (default), 22dp (small), 34dp (large)
+- Schrift: 11px, Bold, Uppercase, Letter-Spacing 0.6
 
 ### Filter Chips
-- Height: 44dp minimum
-- 1-2px border
-- Border radius: sm (10px)
-- Selected: accent background, white text
-- Unselected: surface background, border, secondary text
-- Font: 13px, weight 600
 
-### Progress Bars
-- Height: 8-10px
-- Color based on fill level
-- Border radius: full (pill shape)
-- Background: tertiary color
+- Höhe: 44dp (default), 38dp (small)
+- Border: 1.5px
+- Border-Radius: full (Pill-Form)
+- Ausgewählt: Accent-Hintergrund, weißer Text
 
-### Icons
-- Standard: 24px
-- Large: 28px
-- XL: 32px
-- Use Feather icons consistently
-- Primary color for navigation
-- Accent for actions
-- NO emojis anywhere
+### Text Inputs
 
-## Navigation
+- Höhe: 56dp
+- Border: 1.5px, 2px bei Fehler
+- Border-Radius: md (12px)
+- Fokus-State: Accent-Border-Farbe
+- Label: Oberhalb, 13px SemiBold
 
-### Bottom Tab Bar
-- Height: 64dp
-- 4-5 Tabs max
-- Active: Orange accent (`#FF6B2C`)
-- Inactive: Slate gray (`#6B7888` / `#64748B`)
-- Icon: 24dp
-- Label: 12px, weight 500
+### Progress Bar
 
-### Headers
-- Height: 56dp
-- Transparent for scrollable content
-- Opaque for modal/detail screens
-- Title: weight 600, 18px
+- Höhe: 8px (default)
+- Border-Radius: full
+- Füllfarbe: Dynamisch nach Prozentsatz (showFillColor)
 
-## Shadows (Light Mode Only)
-- **Small**: y:1, blur:3, opacity:0.06
-- **Medium**: y:3, blur:6, opacity:0.08
-- **Large**: y:6, blur:12, opacity:0.10
-- **XL**: y:10, blur:20, opacity:0.12
-- Dark mode: No shadows, use border/elevation colors
+---
 
-## Animation
+## Icons
 
-### Duration
-- Fast: 150ms (micro-interactions)
-- Normal: 250ms (transitions)
-- Slow: 400ms (page transitions)
+| Größe | Wert | Verwendung |
+|-------|------|------------|
+| **Standard** | 24px | Navigation, Aktionen |
+| **Large** | 28px | Hervorgehobene Aktionen |
+| **XL** | 32px | Große Icons |
 
-### Spring Config
-- Damping: 20
-- Stiffness: 300
-- Mass: 0.8
+- Icon-Set: Feather Icons
+- Niemals Emojis verwenden
 
-### Press Feedback
-- Scale: 0.97
-- Opacity: 0.85
+---
 
-## Accessibility
+## Animationen
 
-### Contrast Ratios (WCAG AA - 4.5:1 minimum)
-- Primary Navy vs White: 8.1:1
-- Accent Orange vs White: 4.6:1
-- Success Green vs White: 4.7:1
-- Error Red vs White: 5.9:1
-- Text Primary vs Background: 13:1+
+### Dauer
 
-### Outdoor Visibility
-- High contrast text colors
-- Bold status indicators
-- Large touch targets (48dp+)
-- Clear visual feedback
-- Avoid thin fonts
+| Typ | Wert |
+|-----|------|
+| **Fast** | 150ms |
+| **Normal** | 250ms |
+| **Slow** | 400ms |
 
-## Screen Specifications
+### Spring-Konfiguration
 
-### Tasks Screen
-- Sticky filter bar at top
-- Status filter chips (scrollable)
-- Card-based task list
-- Status badge prominent
-- Navigation button (48dp+)
-- Pull-to-refresh
+| Parameter | Wert |
+|-----------|------|
+| **Damping** | 20 |
+| **Stiffness** | 300 |
+| **Mass** | 0.8 |
 
-### Admin Dashboard
-- 2-column stat grid
-- Color-coded left borders
-- Quick action buttons (56dp)
-- Orange primary CTA
+### Press-Feedback
 
-### Container Details
-- Large fill level indicator
-- Progress bar with color
-- Action buttons at bottom
-- QR code display option
+| Eigenschaft | Wert |
+|-------------|------|
+| **Scale** | 0.97 |
+| **Opacity** | 0.85 |
 
-### Scanner Screen
-- Full-screen camera
-- Flashlight toggle (48dp)
-- Result overlay with blur
-- Confirm/Cancel buttons
+---
+
+## Schatten (nur Light Mode)
+
+| Typ | Y-Offset | Blur | Opacity |
+|-----|----------|------|---------|
+| **Small** | 1px | 2px | 0.04 |
+| **Medium** | 2px | 4px | 0.06 |
+| **Large** | 4px | 8px | 0.08 |
+| **XL** | 8px | 16px | 0.10 |
+
+*Im Dark Mode: Keine Schatten, stattdessen hellere Hintergrundfarben für Elevation.*
+
+---
+
+## Barrierefreiheit (WCAG AA)
+
+- Alle Text/Hintergrund-Kombinationen: min. 4.5:1 Kontrast
+- Touch-Targets: min. 48dp
+- Outdoor-Lesbarkeit: Hoher Kontrast, keine dünnen Schriften
+- Klares visuelles Feedback bei allen Interaktionen
+
+---
 
 ## Best Practices
 
-1. Always use theme colors from `constants/theme.ts`
-2. Never hardcode color values
-3. Test in both light and dark modes
-4. Ensure 48dp minimum touch targets
-5. Use consistent spacing from scale
-6. Apply proper safe area insets
-7. Use KeyboardAwareScrollView for forms
-8. Wrap app in ErrorBoundary
-9. Use Feather icons, never emojis
-10. Test outdoor readability
+1. Theme-Farben aus `constants/theme.ts` verwenden
+2. Niemals Farbwerte hardcoden
+3. In Hell- und Dunkelmodus testen
+4. 48dp Minimum-Touch-Targets einhalten
+5. Konsistente Spacing-Tokens verwenden
+6. Safe Area Insets korrekt anwenden
+7. KeyboardAwareScrollView für Formulare
+8. ErrorBoundary um die gesamte App
+9. Feather Icons, niemals Emojis
+10. Outdoor-Lesbarkeit prüfen

@@ -9,21 +9,24 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing } from "@/constants/theme";
+import { BorderRadius, Spacing, Typography, AnimationConfig } from "@/constants/theme";
+
+type ButtonVariant = "primary" | "secondary" | "tertiary" | "danger";
 
 interface ButtonProps {
   onPress?: () => void;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
+  variant?: ButtonVariant;
+  size?: "default" | "small";
 }
 
 const springConfig: WithSpringConfig = {
-  damping: 15,
-  mass: 0.3,
-  stiffness: 150,
+  damping: AnimationConfig.spring.damping,
+  mass: AnimationConfig.spring.mass,
+  stiffness: AnimationConfig.spring.stiffness,
   overshootClamping: true,
-  energyThreshold: 0.001,
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -33,8 +36,10 @@ export function Button({
   children,
   style,
   disabled = false,
+  variant = "primary",
+  size = "default",
 }: ButtonProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -43,7 +48,7 @@ export function Button({
 
   const handlePressIn = () => {
     if (!disabled) {
-      scale.value = withSpring(0.98, springConfig);
+      scale.value = withSpring(AnimationConfig.pressScale, springConfig);
     }
   };
 
@@ -53,6 +58,57 @@ export function Button({
     }
   };
 
+  const getButtonStyles = (): ViewStyle => {
+    const baseHeight = size === "small" ? Spacing.buttonHeightSmall : Spacing.buttonHeight;
+    
+    switch (variant) {
+      case "primary":
+        return {
+          backgroundColor: theme.accent,
+          height: baseHeight,
+        };
+      case "secondary":
+        return {
+          backgroundColor: "transparent",
+          borderWidth: 2,
+          borderColor: theme.primary,
+          height: baseHeight,
+        };
+      case "tertiary":
+        return {
+          backgroundColor: theme.backgroundSecondary,
+          height: baseHeight,
+        };
+      case "danger":
+        return {
+          backgroundColor: theme.error,
+          height: baseHeight,
+        };
+      default:
+        return {
+          backgroundColor: theme.accent,
+          height: baseHeight,
+        };
+    }
+  };
+
+  const getTextColor = (): string => {
+    switch (variant) {
+      case "primary":
+      case "danger":
+        return "#FFFFFF";
+      case "secondary":
+        return theme.primary;
+      case "tertiary":
+        return theme.text;
+      default:
+        return "#FFFFFF";
+    }
+  };
+
+  const buttonStyles = getButtonStyles();
+  const textColor = getTextColor();
+
   return (
     <AnimatedPressable
       onPress={disabled ? undefined : onPress}
@@ -61,8 +117,8 @@ export function Button({
       disabled={disabled}
       style={[
         styles.button,
+        buttonStyles,
         {
-          backgroundColor: theme.link,
           opacity: disabled ? 0.5 : 1,
         },
         style,
@@ -70,8 +126,12 @@ export function Button({
       ]}
     >
       <ThemedText
-        type="body"
-        style={[styles.buttonText, { color: theme.buttonText }]}
+        type={size === "small" ? "small" : "body"}
+        style={[
+          styles.buttonText,
+          size === "small" ? styles.buttonTextSmall : null,
+          { color: textColor },
+        ]}
       >
         {children}
       </ThemedText>
@@ -81,12 +141,17 @@ export function Button({
 
 const styles = StyleSheet.create({
   button: {
-    height: Spacing.buttonHeight,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: Spacing.xl,
   },
   buttonText: {
+    fontWeight: "700",
+    letterSpacing: Typography.button.letterSpacing,
+  },
+  buttonTextSmall: {
+    fontSize: Typography.buttonSmall.fontSize,
     fontWeight: "600",
   },
 });

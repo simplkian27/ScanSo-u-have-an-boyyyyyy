@@ -1,34 +1,65 @@
 import React from "react";
 import { View, StyleSheet, ViewStyle } from "react-native";
-import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { Colors, BorderRadius } from "@/constants/theme";
+import Animated, { 
+  useAnimatedStyle, 
+  withSpring,
+  interpolateColor,
+  useDerivedValue,
+} from "react-native-reanimated";
+import { useTheme } from "@/hooks/useTheme";
+import { BorderRadius, AnimationConfig } from "@/constants/theme";
 
 interface ProgressBarProps {
   progress: number;
   color?: string;
   backgroundColor?: string;
   style?: ViewStyle;
+  height?: number;
+  showFillColor?: boolean;
 }
 
 export function ProgressBar({
   progress,
-  color = Colors.light.accent,
-  backgroundColor = Colors.light.backgroundSecondary,
+  color,
+  backgroundColor,
   style,
+  height = 8,
+  showFillColor = false,
 }: ProgressBarProps) {
+  const { theme } = useTheme();
   const clampedProgress = Math.min(Math.max(progress, 0), 1);
+
+  const getFillColor = () => {
+    if (color) return color;
+    if (!showFillColor) return theme.accent;
+    
+    if (clampedProgress <= 0.5) return theme.fillLow;
+    if (clampedProgress <= 0.79) return theme.fillMedium;
+    return theme.fillHigh;
+  };
 
   const animatedStyle = useAnimatedStyle(() => ({
     width: withSpring(`${clampedProgress * 100}%`, {
-      damping: 15,
+      damping: AnimationConfig.spring.damping,
       stiffness: 100,
+      mass: 0.5,
     }),
   }));
 
   return (
-    <View style={[styles.container, { backgroundColor }, style]}>
+    <View 
+      style={[
+        styles.container, 
+        { backgroundColor: backgroundColor || theme.backgroundTertiary, height }, 
+        style
+      ]}
+    >
       <Animated.View
-        style={[styles.fill, { backgroundColor: color }, animatedStyle]}
+        style={[
+          styles.fill, 
+          { backgroundColor: getFillColor(), height }, 
+          animatedStyle
+        ]}
       />
     </View>
   );
@@ -36,12 +67,10 @@ export function ProgressBar({
 
 const styles = StyleSheet.create({
   container: {
-    height: 8,
     borderRadius: BorderRadius.full,
     overflow: "hidden",
   },
   fill: {
-    height: "100%",
     borderRadius: BorderRadius.full,
   },
 });

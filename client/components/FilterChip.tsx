@@ -1,8 +1,13 @@
 import React from "react";
 import { Pressable, StyleSheet } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, IndustrialDesign } from "@/constants/theme";
+import { Spacing, BorderRadius, IndustrialDesign, AnimationConfig } from "@/constants/theme";
 
 interface FilterChipProps {
   label: string;
@@ -10,7 +15,10 @@ interface FilterChipProps {
   onPress: () => void;
   color?: string;
   small?: boolean;
+  count?: number;
 }
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function FilterChip({
   label,
@@ -18,14 +26,36 @@ export function FilterChip({
   onPress,
   color,
   small = false,
+  count,
 }: FilterChipProps) {
   const { theme } = useTheme();
+  const scale = useSharedValue(1);
   const activeColor = color || theme.accent;
 
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, {
+      damping: AnimationConfig.spring.damping,
+      stiffness: AnimationConfig.spring.stiffness,
+    });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, {
+      damping: AnimationConfig.spring.damping,
+      stiffness: AnimationConfig.spring.stiffness,
+    });
+  };
+
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
-      style={({ pressed }) => [
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[
         styles.chip,
         small && styles.chipSmall,
         selected && { backgroundColor: activeColor, borderColor: activeColor },
@@ -33,7 +63,7 @@ export function FilterChip({
           backgroundColor: theme.backgroundDefault, 
           borderColor: theme.border,
         },
-        pressed && styles.chipPressed,
+        animatedStyle,
       ]}
     >
       <ThemedText
@@ -41,12 +71,13 @@ export function FilterChip({
         style={[
           styles.label,
           small && styles.labelSmall,
-          { color: selected ? theme.textOnAccent : theme.text },
+          { color: selected ? "#FFFFFF" : theme.text },
         ]}
       >
         {label}
+        {count !== undefined ? ` (${count})` : ""}
       </ThemedText>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -54,24 +85,20 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm + 2,
-    borderRadius: BorderRadius.sm,
-    minHeight: IndustrialDesign.minTouchTarget,
+    borderRadius: BorderRadius.full,
+    minHeight: IndustrialDesign.filterChipHeight,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 2,
+    borderWidth: 1.5,
   },
   chipSmall: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    minHeight: 40,
-  },
-  chipPressed: {
-    opacity: 0.8,
+    minHeight: 38,
   },
   label: {
     fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   labelSmall: {
     fontSize: 12,

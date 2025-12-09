@@ -2,11 +2,11 @@ import React from "react";
 import { View, StyleSheet } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius, IndustrialDesign } from "@/constants/theme";
 
 interface StatusBadgeProps {
   status: string;
-  size?: "small" | "medium";
+  size?: "small" | "medium" | "large";
 }
 
 export function StatusBadge({ status, size = "medium" }: StatusBadgeProps) {
@@ -18,25 +18,37 @@ export function StatusBadge({ status, size = "medium" }: StatusBadgeProps) {
         return {
           label: "Offen",
           color: "#FFFFFF",
-          backgroundColor: theme.statusOpen || theme.statusIdle,
+          backgroundColor: theme.statusOpen,
         };
       case "in_progress":
         return {
           label: "In Bearbeitung",
-          color: "#FFFFFF",
+          color: "#1E293B",
           backgroundColor: theme.statusInProgress,
         };
       case "completed":
         return {
           label: "Erledigt",
           color: "#FFFFFF",
-          backgroundColor: theme.statusCompleted || theme.success,
+          backgroundColor: theme.statusCompleted,
         };
       case "cancelled":
         return {
           label: "Storniert",
           color: "#FFFFFF",
-          backgroundColor: theme.statusCancelled || theme.error,
+          backgroundColor: theme.statusCancelled,
+        };
+      case "active":
+        return {
+          label: "Aktiv",
+          color: "#FFFFFF",
+          backgroundColor: theme.success,
+        };
+      case "inactive":
+        return {
+          label: "Inaktiv",
+          color: "#FFFFFF",
+          backgroundColor: theme.statusIdle,
         };
       default:
         return {
@@ -48,22 +60,43 @@ export function StatusBadge({ status, size = "medium" }: StatusBadgeProps) {
   };
 
   const config = getStatusConfig();
-  const isSmall = size === "small";
+  
+  const getSizeStyles = () => {
+    switch (size) {
+      case "small":
+        return {
+          badge: styles.badgeSmall,
+          label: styles.labelSmall,
+        };
+      case "large":
+        return {
+          badge: styles.badgeLarge,
+          label: styles.labelLarge,
+        };
+      default:
+        return {
+          badge: null,
+          label: null,
+        };
+    }
+  };
+
+  const sizeStyles = getSizeStyles();
 
   return (
     <View
       style={[
         styles.badge,
         { backgroundColor: config.backgroundColor },
-        isSmall && styles.badgeSmall,
+        sizeStyles.badge,
       ]}
     >
       <ThemedText
-        type="small"
+        type="caption"
         style={[
           styles.label,
           { color: config.color },
-          isSmall && styles.labelSmall,
+          sizeStyles.label,
         ]}
       >
         {config.label}
@@ -74,25 +107,36 @@ export function StatusBadge({ status, size = "medium" }: StatusBadgeProps) {
 
 const styles = StyleSheet.create({
   badge: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: IndustrialDesign.statusBadgePaddingH,
     paddingVertical: Spacing.xs + 2,
-    borderRadius: BorderRadius.sm,
-    minHeight: 28,
+    borderRadius: BorderRadius.full,
+    minHeight: IndustrialDesign.statusBadgeHeight,
     justifyContent: "center",
     alignItems: "center",
+    alignSelf: "flex-start",
   },
   badgeSmall: {
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.sm + 2,
     paddingVertical: Spacing.xs,
-    minHeight: 24,
+    minHeight: 22,
+  },
+  badgeLarge: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    minHeight: 34,
   },
   label: {
     fontSize: 11,
     fontWeight: "700",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   labelSmall: {
     fontSize: 10,
+    letterSpacing: 0.4,
+  },
+  labelLarge: {
+    fontSize: 13,
+    letterSpacing: 0.5,
   },
 });

@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Pressable, ViewStyle } from "react-native";
+import { StyleSheet, Pressable, ViewStyle, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -9,85 +9,98 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, IndustrialDesign } from "@/constants/theme";
+import { Spacing, BorderRadius, IndustrialDesign, AnimationConfig } from "@/constants/theme";
+
+type CardVariant = "default" | "elevated" | "outlined" | "filled";
 
 interface CardProps {
-  elevation?: number;
+  variant?: CardVariant;
   title?: string;
   description?: string;
   children?: React.ReactNode;
   onPress?: () => void;
   style?: ViewStyle;
+  contentStyle?: ViewStyle;
+  noPadding?: boolean;
 }
 
 const springConfig: WithSpringConfig = {
-  damping: 15,
-  mass: 0.3,
-  stiffness: 150,
+  damping: AnimationConfig.spring.damping,
+  mass: AnimationConfig.spring.mass,
+  stiffness: AnimationConfig.spring.stiffness,
   overshootClamping: true,
-  energyThreshold: 0.001,
-};
-
-const getBackgroundColorForElevation = (
-  elevation: number,
-  theme: any,
-): string => {
-  switch (elevation) {
-    case 1:
-      return theme.cardSurface || theme.backgroundDefault;
-    case 2:
-      return theme.backgroundSecondary;
-    case 3:
-      return theme.backgroundTertiary;
-    default:
-      return theme.backgroundRoot;
-  }
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function Card({
-  elevation = 1,
+  variant = "default",
   title,
   description,
   children,
   onPress,
   style,
+  contentStyle,
+  noPadding = false,
 }: CardProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const scale = useSharedValue(1);
-
-  const cardBackgroundColor = getBackgroundColorForElevation(elevation, theme);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.98, springConfig);
+    if (onPress) {
+      scale.value = withSpring(AnimationConfig.pressScale, springConfig);
+    }
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, springConfig);
+    if (onPress) {
+      scale.value = withSpring(1, springConfig);
+    }
   };
 
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={[
-        styles.card,
-        {
-          backgroundColor: cardBackgroundColor,
-          borderColor: theme.cardBorder || theme.border,
-        },
-        animatedStyle,
-        style,
-      ]}
-    >
+  const getCardStyles = (): ViewStyle => {
+    switch (variant) {
+      case "default":
+        return {
+          backgroundColor: theme.cardSurface,
+          borderWidth: 1,
+          borderColor: theme.cardBorder,
+        };
+      case "elevated":
+        return {
+          backgroundColor: isDark ? theme.cardSurfaceElevated : theme.cardSurface,
+          borderWidth: 0,
+        };
+      case "outlined":
+        return {
+          backgroundColor: "transparent",
+          borderWidth: 1.5,
+          borderColor: theme.border,
+        };
+      case "filled":
+        return {
+          backgroundColor: theme.backgroundSecondary,
+          borderWidth: 0,
+        };
+      default:
+        return {
+          backgroundColor: theme.cardSurface,
+          borderWidth: 1,
+          borderColor: theme.cardBorder,
+        };
+    }
+  };
+
+  const cardStyles = getCardStyles();
+
+  const content = (
+    <>
       {title ? (
-        <ThemedText type="h4" style={[styles.cardTitle, { color: theme.primary }]}>
+        <ThemedText type="h4" style={[styles.cardTitle, { color: theme.text }]}>
           {title}
         </ThemedText>
       ) : null}
@@ -97,7 +110,39 @@ export function Card({
         </ThemedText>
       ) : null}
       {children}
-    </AnimatedPressable>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <AnimatedPressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[
+          styles.card,
+          cardStyles,
+          noPadding ? styles.noPadding : null,
+          animatedStyle,
+          style,
+        ]}
+      >
+        <View style={contentStyle}>{content}</View>
+      </AnimatedPressable>
+    );
+  }
+
+  return (
+    <View
+      style={[
+        styles.card,
+        cardStyles,
+        noPadding ? styles.noPadding : null,
+        style,
+      ]}
+    >
+      <View style={contentStyle}>{content}</View>
+    </View>
   );
 }
 
@@ -105,13 +150,16 @@ const styles = StyleSheet.create({
   card: {
     padding: IndustrialDesign.cardPadding,
     borderRadius: BorderRadius.lg,
-    borderWidth: 1,
+    overflow: "hidden",
+  },
+  noPadding: {
+    padding: 0,
   },
   cardTitle: {
     marginBottom: Spacing.sm,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   cardDescription: {
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
 });
