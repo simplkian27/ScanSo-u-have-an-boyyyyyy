@@ -24,6 +24,7 @@ function setupCors(app: express.Application) {
         /\.replit\.dev$/,
         /\.replit\.app$/,
         /\.riker\.replit\.dev$/,
+        /\.repl\.co$/,
       ];
 
       const isAllowed = allowedPatterns.some((pattern) => pattern.test(origin)) ||
@@ -35,9 +36,16 @@ function setupCors(app: express.Application) {
           "Access-Control-Allow-Methods",
           "GET, POST, PUT, DELETE, OPTIONS, PATCH",
         );
-        res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-replit-user-id, x-replit-user-name, x-replit-user-roles");
         res.header("Access-Control-Allow-Credentials", "true");
       }
+    } else {
+      res.header("Access-Control-Allow-Origin", "*");
+      res.header(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+      );
+      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-replit-user-id, x-replit-user-name, x-replit-user-roles");
     }
 
     if (req.method === "OPTIONS") {
