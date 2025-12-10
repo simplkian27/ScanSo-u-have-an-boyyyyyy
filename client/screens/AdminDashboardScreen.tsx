@@ -210,6 +210,18 @@ export default function AdminDashboardScreen() {
 
           <Button
             style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
+            onPress={() => navigation.navigate("ManageTasks")}
+          >
+            <View style={styles.actionContent}>
+              <Feather name="clipboard" size={20} color={theme.primary} />
+              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
+                Aufgaben verwalten
+              </ThemedText>
+            </View>
+          </Button>
+
+          <Button
+            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
             onPress={() => navigation.navigate("ActivityLog")}
           >
             <View style={styles.actionContent}>
