@@ -17,12 +17,23 @@ import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { ProgressBar } from "@/components/ProgressBar";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, AnimationConfig } from "@/constants/theme";
 import { ContainersStackParamList } from "@/navigation/ContainersStackNavigator";
 import { CustomerContainer, WarehouseContainer, FillHistory } from "@shared/schema";
 import { openMapsNavigation } from "@/lib/navigation";
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/Button";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, WithSpringConfig } from "react-native-reanimated";
+
+const springConfig: WithSpringConfig = {
+  damping: AnimationConfig.spring.damping,
+  mass: AnimationConfig.spring.mass,
+  stiffness: AnimationConfig.spring.stiffness,
+  overshootClamping: true,
+};
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type RouteProps = RouteProp<ContainersStackParamList, "ContainerDetail">;
 
@@ -56,6 +67,13 @@ export default function ContainerDetailScreen() {
   const { containerId, type } = route.params;
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  
+  const [isEmptying, setIsEmptying] = React.useState(false);
+  const [showAllHistory, setShowAllHistory] = React.useState(false);
+  
+  const navButtonScale = useSharedValue(1);
+  const shareButtonScale = useSharedValue(1);
+  const viewAllScale = useSharedValue(1);
 
   const { data: container, isLoading } = useQuery<CustomerContainer | WarehouseContainer>({
     queryKey: [`/api/containers/${type}/${containerId}`],
@@ -138,6 +156,56 @@ export default function ContainerDetailScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert("Share Location", `Container ${container?.id} at ${customerContainer.location}`);
   };
+
+  const handleMarkAsEmpty = async () => {
+    if (!container || type !== "warehouse") return;
+    
+    Alert.alert(
+      "Mark Container Empty",
+      "This will reset the container fill level to 0 kg and record the emptying time. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Mark Empty",
+          onPress: async () => {
+            setIsEmptying(true);
+            try {
+              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              await apiRequest("PATCH", `/api/containers/warehouse/${containerId}`, {
+                currentAmount: 0,
+                lastEmptied: new Date().toISOString(),
+              });
+              queryClient.invalidateQueries({ queryKey: [`/api/containers/${type}/${containerId}`] });
+              queryClient.invalidateQueries({ queryKey: ["/api/containers/warehouse"] });
+              Alert.alert("Success", "Container marked as empty");
+            } catch (err) {
+              console.error("Failed to mark container as empty:", err);
+              Alert.alert("Error", "Failed to mark container as empty. Please try again.");
+            } finally {
+              setIsEmptying(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleToggleHistory = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowAllHistory(!showAllHistory);
+  };
+
+  const navAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: navButtonScale.value }],
+  }));
+
+  const shareAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: shareButtonScale.value }],
+  }));
+
+  const viewAllAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: viewAllScale.value }],
+  }));
 
   if (isLoading) {
     return (
@@ -272,6 +340,21 @@ export default function ContainerDetailScreen() {
                 </ThemedText>
               </View>
             ) : null}
+
+            {isAdmin ? (
+              <Button
+                onPress={handleMarkAsEmpty}
+                disabled={isEmptying || warehouseContainer.currentAmount === 0}
+                style={styles.markEmptyButton}
+              >
+                <View style={styles.markEmptyContent}>
+                  <Feather name="refresh-ccw" size={18} color="#FFFFFF" />
+                  <ThemedText type="body" style={styles.markEmptyText}>
+                    {isEmptying ? "Marking Empty..." : "Mark Container Empty"}
+                  </ThemedText>
+                </View>
+              </Button>
+            ) : null}
           </GlassPanel>
         ) : (
           <>
@@ -383,18 +466,28 @@ export default function ContainerDetailScreen() {
                 </View>
 
                 <View style={styles.mapActions}>
-                  <Pressable style={styles.mapActionButton} onPress={handleNavigation}>
+                  <AnimatedPressable 
+                    style={[styles.mapActionButton, navAnimatedStyle]} 
+                    onPress={handleNavigation}
+                    onPressIn={() => { navButtonScale.value = withSpring(AnimationConfig.pressScale, springConfig); }}
+                    onPressOut={() => { navButtonScale.value = withSpring(1, springConfig); }}
+                  >
                     <Feather name="navigation" size={18} color={Colors.light.textOnAccent} />
                     <ThemedText type="small" style={styles.mapActionText}>
                       Navigate
                     </ThemedText>
-                  </Pressable>
-                  <Pressable style={[styles.mapActionButton, styles.mapActionSecondary]} onPress={handleShareLocation}>
+                  </AnimatedPressable>
+                  <AnimatedPressable 
+                    style={[styles.mapActionButton, styles.mapActionSecondary, shareAnimatedStyle]} 
+                    onPress={handleShareLocation}
+                    onPressIn={() => { shareButtonScale.value = withSpring(AnimationConfig.pressScale, springConfig); }}
+                    onPressOut={() => { shareButtonScale.value = withSpring(1, springConfig); }}
+                  >
                     <Feather name="share-2" size={18} color={Colors.light.primary} />
                     <ThemedText type="small" style={styles.mapActionTextSecondary}>
                       Share
                     </ThemedText>
-                  </Pressable>
+                  </AnimatedPressable>
                 </View>
               </GlassPanel>
             ) : null}
@@ -431,14 +524,14 @@ export default function ContainerDetailScreen() {
             </View>
             
             <View style={styles.timeline}>
-              {fillHistory.slice(0, 8).map((entry, index) => (
+              {(showAllHistory ? fillHistory : fillHistory.slice(0, 8)).map((entry, index) => (
                 <View key={entry.id} style={styles.timelineItem}>
                   <View style={styles.timelineLeft}>
                     <View style={[
                       styles.timelineDot, 
                       index === 0 ? styles.timelineDotActive : null
                     ]} />
-                    {index < Math.min(fillHistory.length - 1, 7) ? (
+                    {index < (showAllHistory ? fillHistory.length - 1 : Math.min(fillHistory.length - 1, 7)) ? (
                       <View style={styles.timelineLine} />
                     ) : null}
                   </View>
@@ -463,12 +556,21 @@ export default function ContainerDetailScreen() {
             </View>
 
             {fillHistory.length > 8 ? (
-              <Pressable style={styles.viewAllButton}>
+              <AnimatedPressable 
+                style={[styles.viewAllButton, viewAllAnimatedStyle]}
+                onPress={handleToggleHistory}
+                onPressIn={() => { viewAllScale.value = withSpring(AnimationConfig.pressScale, springConfig); }}
+                onPressOut={() => { viewAllScale.value = withSpring(1, springConfig); }}
+              >
                 <ThemedText type="small" style={styles.viewAllText}>
-                  View all {fillHistory.length} entries
+                  {showAllHistory ? "Show less" : `View all ${fillHistory.length} entries`}
                 </ThemedText>
-                <Feather name="chevron-right" size={16} color={Colors.light.accent} />
-              </Pressable>
+                <Feather 
+                  name={showAllHistory ? "chevron-up" : "chevron-right"} 
+                  size={16} 
+                  color={Colors.light.accent} 
+                />
+              </AnimatedPressable>
             ) : null}
           </GlassPanel>
         ) : null}
@@ -844,6 +946,18 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: Colors.light.textOnAccent,
+    fontWeight: "600",
+  },
+  markEmptyButton: {
+    marginTop: Spacing.lg,
+  },
+  markEmptyContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  markEmptyText: {
+    color: "#FFFFFF",
     fontWeight: "600",
   },
 });
