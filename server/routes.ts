@@ -411,6 +411,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         taskId: task.id,
         containerId: task.containerID,
         timestamp: new Date(),
+        details: null,
+        metadata: null,
+        location: null,
+        scanEventId: null,
       });
 
       res.status(201).json(task);
@@ -455,6 +459,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         taskId: task.id,
         containerId: task.containerID,
         timestamp: new Date(),
+        details: null,
+        metadata: null,
+        location: null,
+        scanEventId: null,
       });
 
       res.json(updatedTask);
@@ -491,6 +499,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         locationType: "CUSTOMER",
         locationDetails: location,
         geoLocation: geoLocation || null,
+        scanResult: "SUCCESS",
+        resultMessage: null,
+        extraData: null,
       });
 
       const driver = await storage.getUser(userId);
@@ -505,6 +516,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         scanEventId: scanEvent.id,
         location: geoLocation || null,
         timestamp: new Date(),
+        details: null,
+        metadata: null,
       });
 
       res.json(updatedTask);
@@ -555,6 +568,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         locationType: "WAREHOUSE",
         locationDetails: warehouseContainer.warehouseZone || location,
         geoLocation: geoLocation || null,
+        scanResult: "SUCCESS",
+        resultMessage: null,
+        extraData: null,
       });
 
       await storage.createActivityLog({
@@ -566,6 +582,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         scanEventId: scanEvent.id,
         location: geoLocation || null,
         timestamp: new Date(),
+        details: null,
+        metadata: null,
       });
 
       await storage.updateWarehouseContainer(warehouseContainerId, {
@@ -598,6 +616,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         containerId: warehouseContainerId,
         timestamp: new Date(),
         metadata: { amountAdded: amount, unit: warehouseContainer.quantityUnit },
+        details: null,
+        location: null,
+        scanEventId: null,
       });
 
       res.json(updatedTask);
@@ -632,6 +653,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         containerId: task.containerID,
         timestamp: new Date(),
         metadata: { reason },
+        details: null,
+        location: null,
+        scanEventId: null,
       });
 
       res.json(updatedTask);
@@ -690,6 +714,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         locationType,
         locationDetails: locationDetails || null,
         geoLocation: geoLocation || null,
+        scanResult: "SUCCESS",
+        resultMessage: null,
+        extraData: null,
       });
 
       const logType = locationType === "WAREHOUSE" ? "CONTAINER_SCANNED_AT_WAREHOUSE" : "CONTAINER_SCANNED_AT_CUSTOMER";
@@ -702,6 +729,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         scanEventId: scanEvent.id,
         location: geoLocation || null,
         timestamp: new Date(),
+        details: null,
+        metadata: null,
       });
 
       res.status(201).json(scanEvent);
