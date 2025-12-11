@@ -226,8 +226,13 @@ function setupErrorHandler(app: express.Application) {
 }
 
 (async () => {
-  // Log database configuration at startup
-  log(`Using Supabase PostgreSQL via DATABASE_URL`);
+  // Log database configuration at startup (show host only, no credentials)
+  try {
+    const dbUrl = new URL(process.env.DATABASE_URL || '');
+    log(`Using Supabase PostgreSQL via DATABASE_URL (host: ${dbUrl.hostname})`);
+  } catch {
+    log(`Using Supabase PostgreSQL via DATABASE_URL`);
+  }
   
   setupCors(app);
   setupBodyParsing(app);
