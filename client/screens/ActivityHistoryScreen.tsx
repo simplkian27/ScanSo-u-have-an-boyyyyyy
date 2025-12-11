@@ -20,10 +20,10 @@ import { FilterChip } from "@/components/FilterChip";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, IndustrialDesign } from "@/constants/theme";
-import { ActivityLog, User, Task } from "@shared/schema";
+import { ActivityLog, User, Task, ACTIVITY_LOG_TYPE_LABELS, TASK_STATUS_LABELS } from "@shared/schema";
 
 type UserWithoutPassword = Omit<User, "password">;
-type ActionFilter = "all" | "pickup" | "delivery" | "cancelled";
+type TypeFilter = "all" | "TASK_ACCEPTED" | "TASK_COMPLETED" | "TASK_CANCELLED";
 
 interface GroupedActivity {
   date: string;
@@ -31,21 +31,12 @@ interface GroupedActivity {
   items: ActivityLog[];
 }
 
-const actionLabels: Record<string, string> = {
-  pickup: "Auftrag angenommen",
-  delivery: "Auftrag abgeschlossen",
-  cancelled: "Abgebrochen",
-  manual_edit: "Bearbeitet",
-  emptied: "Geleert",
-  created: "Auftrag erstellt",
-};
-
 export default function ActivityHistoryScreen() {
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   
-  const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [showDriverPicker, setShowDriverPicker] = useState(false);
   const [dateFrom, setDateFrom] = useState<Date | null>(null);
@@ -65,7 +56,8 @@ export default function ActivityHistoryScreen() {
 
   const isLoading = logsLoading || usersLoading || tasksLoading;
 
-  const getUserName = (userId: string): string => {
+  const getUserName = (userId: string | null): string => {
+    if (!userId) return "System";
     const user = users.find((u) => u.id === userId);
     return user?.name || "Unbekannter Benutzer";
   };
@@ -75,20 +67,31 @@ export default function ActivityHistoryScreen() {
     return tasks.find((t) => t.id === taskId);
   };
 
-  const getActionConfig = (action: string) => {
-    switch (action) {
-      case "pickup":
-        return { icon: "log-in" as const, color: theme.statusInProgress };
-      case "delivery":
-        return { icon: "check-circle" as const, color: theme.statusCompleted };
-      case "cancelled":
-        return { icon: "x-circle" as const, color: theme.statusCancelled };
-      case "created":
+  const getTypeConfig = (type: string) => {
+    switch (type) {
+      case "TASK_CREATED":
         return { icon: "plus-circle" as const, color: theme.statusOpen };
-      case "manual_edit":
+      case "TASK_ASSIGNED":
+        return { icon: "user-check" as const, color: theme.statusOpen };
+      case "TASK_ACCEPTED":
+        return { icon: "check-circle" as const, color: theme.statusInProgress };
+      case "TASK_PICKED_UP":
+        return { icon: "log-in" as const, color: theme.statusInProgress };
+      case "TASK_IN_TRANSIT":
+        return { icon: "truck" as const, color: theme.statusInProgress };
+      case "TASK_DELIVERED":
+        return { icon: "log-out" as const, color: theme.statusCompleted };
+      case "TASK_COMPLETED":
+        return { icon: "check-square" as const, color: theme.statusCompleted };
+      case "TASK_CANCELLED":
+        return { icon: "x-circle" as const, color: theme.statusCancelled };
+      case "CONTAINER_SCANNED_AT_CUSTOMER":
+      case "CONTAINER_SCANNED_AT_WAREHOUSE":
+        return { icon: "maximize" as const, color: theme.primary };
+      case "WEIGHT_RECORDED":
+        return { icon: "database" as const, color: theme.primary };
+      case "MANUAL_EDIT":
         return { icon: "edit" as const, color: theme.primary };
-      case "emptied":
-        return { icon: "refresh-ccw" as const, color: theme.fillLow };
       default:
         return { icon: "activity" as const, color: theme.textSecondary };
     }
@@ -124,7 +127,7 @@ export default function ActivityHistoryScreen() {
 
   const filteredLogs = useMemo(() => {
     return logs.filter((log) => {
-      if (actionFilter !== "all" && log.action !== actionFilter) {
+      if (typeFilter !== "all" && log.type !== typeFilter) {
         return false;
       }
       if (selectedDriverId && log.userId !== selectedDriverId) {
@@ -142,7 +145,7 @@ export default function ActivityHistoryScreen() {
       }
       return true;
     });
-  }, [logs, actionFilter, selectedDriverId, dateFrom, dateTo]);
+  }, [logs, typeFilter, selectedDriverId, dateFrom, dateTo]);
 
   const groupedActivities = useMemo((): GroupedActivity[] => {
     const groups: Record<string, ActivityLog[]> = {};
@@ -167,7 +170,7 @@ export default function ActivityHistoryScreen() {
   }, [filteredLogs]);
 
   const drivers = useMemo(() => {
-    return users.filter((u) => u.role === "driver" || u.role === "admin");
+    return users.filter((u) => u.role === "DRIVER" || u.role === "ADMIN" || u.role === "driver" || u.role === "admin");
   }, [users]);
 
   const selectedDriverName = selectedDriverId
@@ -175,18 +178,18 @@ export default function ActivityHistoryScreen() {
     : "Alle Fahrer";
 
   const clearFilters = () => {
-    setActionFilter("all");
+    setTypeFilter("all");
     setSelectedDriverId(null);
     setDateFrom(null);
     setDateTo(null);
   };
 
-  const hasActiveFilters = actionFilter !== "all" || selectedDriverId !== null || dateFrom !== null || dateTo !== null;
+  const hasActiveFilters = typeFilter !== "all" || selectedDriverId !== null || dateFrom !== null || dateTo !== null;
 
   const renderTaskLifecycle = (task: Task) => {
     const lifecycleSteps: Array<{
       label: string;
-      timestamp: Date | null;
+      timestamp: Date | string | null;
       icon: keyof typeof Feather.glyphMap;
       color: string;
       completed: boolean;
@@ -199,25 +202,53 @@ export default function ActivityHistoryScreen() {
         completed: true,
       },
       {
-        label: "Beim Kunden gescannt",
-        timestamp: task.pickupTimestamp,
+        label: "Zugewiesen",
+        timestamp: task.assignedAt,
+        icon: "user-check",
+        color: theme.statusOpen,
+        completed: !!task.assignedAt,
+      },
+      {
+        label: "Angenommen",
+        timestamp: task.acceptedAt,
+        icon: "check-circle",
+        color: theme.statusInProgress,
+        completed: !!task.acceptedAt,
+      },
+      {
+        label: "Abgeholt",
+        timestamp: task.pickedUpAt,
         icon: "log-in",
         color: theme.statusInProgress,
-        completed: !!task.pickupTimestamp,
+        completed: !!task.pickedUpAt,
+      },
+      {
+        label: "Unterwegs",
+        timestamp: task.inTransitAt,
+        icon: "truck",
+        color: theme.statusInProgress,
+        completed: !!task.inTransitAt,
       },
       {
         label: "Im Lager geliefert",
-        timestamp: task.deliveryTimestamp,
-        icon: "check-circle",
+        timestamp: task.deliveredAt,
+        icon: "log-out",
         color: theme.statusCompleted,
-        completed: !!task.deliveryTimestamp,
+        completed: !!task.deliveredAt,
+      },
+      {
+        label: "Abgeschlossen",
+        timestamp: task.completedAt,
+        icon: "check-square",
+        color: theme.statusCompleted,
+        completed: !!task.completedAt,
       },
     ];
 
-    if (task.status === "cancelled") {
+    if (task.status === "CANCELLED") {
       lifecycleSteps.push({
-        label: "Abgebrochen",
-        timestamp: task.deliveryTimestamp || task.pickupTimestamp || task.createdAt,
+        label: "Storniert",
+        timestamp: task.cancelledAt,
         icon: "x-circle",
         color: theme.statusCancelled,
         completed: true,
@@ -226,7 +257,7 @@ export default function ActivityHistoryScreen() {
 
     return (
       <View style={styles.lifecycleContainer}>
-        {lifecycleSteps.map((step, index) => (
+        {lifecycleSteps.filter(step => step.completed || step.timestamp).map((step, index) => (
           <View key={step.label} style={styles.lifecycleStep}>
             <View style={styles.lifecycleIconRow}>
               <View
@@ -244,14 +275,12 @@ export default function ActivityHistoryScreen() {
                   color={step.completed ? step.color : theme.textSecondary}
                 />
               </View>
-              {index < lifecycleSteps.length - 1 ? (
+              {index < lifecycleSteps.filter(s => s.completed || s.timestamp).length - 1 ? (
                 <View
                   style={[
                     styles.lifecycleLine,
                     {
-                      backgroundColor: lifecycleSteps[index + 1].completed
-                        ? step.color
-                        : theme.border,
+                      backgroundColor: step.completed ? step.color : theme.border,
                     },
                   ]}
                 />
@@ -290,9 +319,16 @@ export default function ActivityHistoryScreen() {
   };
 
   const renderLogItem = ({ item }: { item: ActivityLog }) => {
-    const config = getActionConfig(item.action);
+    const config = getTypeConfig(item.type);
     const task = getTask(item.taskId);
-    const actionLabel = actionLabels[item.action] || item.action;
+    const typeLabel = ACTIVITY_LOG_TYPE_LABELS[item.type] || item.type;
+
+    const getStatusFromType = (type: string) => {
+      if (type.includes("ACCEPTED") || type.includes("PICKED_UP") || type.includes("IN_TRANSIT")) return "ACCEPTED";
+      if (type.includes("COMPLETED") || type.includes("DELIVERED")) return "COMPLETED";
+      if (type.includes("CANCELLED")) return "CANCELLED";
+      return "PLANNED";
+    };
 
     return (
       <Card style={{ ...styles.logCard, backgroundColor: theme.cardSurface }}>
@@ -303,12 +339,12 @@ export default function ActivityHistoryScreen() {
           <View style={styles.logMainContent}>
             <View style={styles.logTitleRow}>
               <StatusBadge
-                status={item.action === "pickup" ? "in_progress" : item.action === "delivery" ? "completed" : item.action === "cancelled" ? "cancelled" : "open"}
-                label={actionLabel}
+                status={getStatusFromType(item.type)}
+                label={typeLabel}
                 size="small"
               />
               <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                {formatTime(item.createdAt)}
+                {formatTime(item.timestamp || item.createdAt)}
               </ThemedText>
             </View>
             <View style={styles.logInfoRow}>
@@ -333,9 +369,9 @@ export default function ActivityHistoryScreen() {
                 </ThemedText>
               </View>
             ) : null}
-            {item.details ? (
-              <ThemedText type="small" style={[styles.logDetails, { color: theme.textSecondary }]}>
-                {item.details}
+            {item.message ? (
+              <ThemedText type="small" style={[styles.logDetails, { color: theme.text }]}>
+                {item.message}
               </ThemedText>
             ) : null}
             {task ? renderTaskLifecycle(task) : null}
@@ -509,28 +545,28 @@ export default function ActivityHistoryScreen() {
           <View style={styles.filterRow}>
             <FilterChip
               label="Alle"
-              selected={actionFilter === "all"}
-              onPress={() => setActionFilter("all")}
+              selected={typeFilter === "all"}
+              onPress={() => setTypeFilter("all")}
               small
             />
             <FilterChip
               label="Angenommen"
-              selected={actionFilter === "pickup"}
-              onPress={() => setActionFilter("pickup")}
+              selected={typeFilter === "TASK_ACCEPTED"}
+              onPress={() => setTypeFilter("TASK_ACCEPTED")}
               color={theme.statusInProgress}
               small
             />
             <FilterChip
               label="Abgeschlossen"
-              selected={actionFilter === "delivery"}
-              onPress={() => setActionFilter("delivery")}
+              selected={typeFilter === "TASK_COMPLETED"}
+              onPress={() => setTypeFilter("TASK_COMPLETED")}
               color={theme.statusCompleted}
               small
             />
             <FilterChip
-              label="Abgebrochen"
-              selected={actionFilter === "cancelled"}
-              onPress={() => setActionFilter("cancelled")}
+              label="Storniert"
+              selected={typeFilter === "TASK_CANCELLED"}
+              onPress={() => setTypeFilter("TASK_CANCELLED")}
               color={theme.statusCancelled}
               small
             />
@@ -690,11 +726,9 @@ const styles = StyleSheet.create({
   lifecycleContent: {
     flex: 1,
     marginLeft: Spacing.sm,
-    paddingBottom: Spacing.sm,
   },
   lifecycleLabel: {
     fontWeight: "600",
-    marginBottom: 2,
   },
   emptyState: {
     flex: 1,
@@ -702,10 +736,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing["5xl"],
     gap: Spacing.md,
-    paddingHorizontal: Spacing.xl,
   },
   emptyTitle: {
-    marginTop: Spacing.sm,
+    fontWeight: "700",
   },
   clearFiltersButton: {
     paddingHorizontal: Spacing.xl,
@@ -728,9 +761,11 @@ const styles = StyleSheet.create({
   },
   pickerTitle: {
     marginBottom: Spacing.lg,
+    textAlign: "center",
+    fontWeight: "700",
   },
   pickerList: {
-    maxHeight: 400,
+    maxHeight: 300,
   },
   pickerItem: {
     flexDirection: "row",

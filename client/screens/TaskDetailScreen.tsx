@@ -11,17 +11,21 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { TasksStackParamList } from "@/navigation/TasksStackNavigator";
-import { Task, CustomerContainer } from "@shared/schema";
+import { Task, CustomerContainer, TASK_STATUS_LABELS } from "@shared/schema";
 import { openMapsNavigation } from "@/lib/navigation";
 
 type RouteProps = RouteProp<TasksStackParamList, "TaskDetail">;
+
+const ACTIVE_STATUSES = ["PLANNED", "ASSIGNED", "ACCEPTED", "PICKED_UP", "IN_TRANSIT"];
 
 export default function TaskDetailScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
+  const { theme } = useTheme();
   const { taskId } = route.params;
 
   const { data: task, isLoading } = useQuery<Task>({
@@ -72,24 +76,46 @@ export default function TaskDetailScreen() {
   if (isLoading) {
     return (
       <ThemedView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.light.accent} />
+        <ActivityIndicator size="large" color={theme.accent} />
       </ThemedView>
     );
   }
 
   if (!task) {
     return (
-      <ThemedView style={styles.container}>
+      <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
         <View style={styles.errorState}>
-          <Feather name="alert-circle" size={48} color={Colors.light.error} />
+          <Feather name="alert-circle" size={48} color={theme.error} />
           <ThemedText type="h4">Aufgabe nicht gefunden</ThemedText>
         </View>
       </ThemedView>
     );
   }
 
+  const lifecycleSteps = [
+    { label: "Erstellt", timestamp: task.createdAt, status: "PLANNED", icon: "plus-circle" as const },
+    { label: "Zugewiesen", timestamp: task.assignedAt, status: "ASSIGNED", icon: "user-check" as const },
+    { label: "Angenommen", timestamp: task.acceptedAt, status: "ACCEPTED", icon: "check-circle" as const },
+    { label: "Abgeholt", timestamp: task.pickedUpAt, status: "PICKED_UP", icon: "log-in" as const },
+    { label: "Unterwegs", timestamp: task.inTransitAt, status: "IN_TRANSIT", icon: "truck" as const },
+    { label: "Geliefert", timestamp: task.deliveredAt, status: "DELIVERED", icon: "log-out" as const },
+    { label: "Abgeschlossen", timestamp: task.completedAt, status: "COMPLETED", icon: "check-square" as const },
+  ];
+
+  if (task.status === "CANCELLED") {
+    lifecycleSteps.push({ 
+      label: "Storniert", 
+      timestamp: task.cancelledAt, 
+      status: "CANCELLED", 
+      icon: "x-circle" as const 
+    });
+  }
+
+  const hasAnyTimestamp = lifecycleSteps.some(step => step.timestamp);
+  const isActive = ACTIVE_STATUSES.includes(task.status);
+
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -97,15 +123,15 @@ export default function TaskDetailScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Card style={styles.headerCard}>
+        <Card style={[styles.headerCard, { backgroundColor: theme.cardSurface }]}>
           <View style={styles.headerRow}>
             <View style={styles.containerInfo}>
-              <Feather name="package" size={32} color={Colors.light.primary} />
+              <Feather name="package" size={32} color={theme.primary} />
               <View>
-                <ThemedText type="h3" style={styles.containerId}>
+                <ThemedText type="h3" style={[styles.containerId, { color: theme.primary }]}>
                   {task.containerID}
                 </ThemedText>
-                <ThemedText type="small" style={styles.materialType}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
                   {task.materialType}
                 </ThemedText>
               </View>
@@ -114,18 +140,18 @@ export default function TaskDetailScreen() {
           </View>
         </Card>
 
-        <Card style={styles.infoCard}>
+        <Card style={[styles.infoCard, { backgroundColor: theme.cardSurface }]}>
           <ThemedText type="h4" style={styles.sectionTitle}>
             Abholungsdetails
           </ThemedText>
           
           <View style={styles.infoRow}>
-            <Feather name="map-pin" size={20} color={Colors.light.textSecondary} />
+            <Feather name="map-pin" size={20} color={theme.textSecondary} />
             <View style={styles.infoContent}>
-              <ThemedText type="small" style={styles.infoLabel}>Standort</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>Standort</ThemedText>
               <ThemedText type="body">{container?.location || "Wird geladen..."}</ThemedText>
               {container?.customerName ? (
-                <ThemedText type="small" style={styles.infoSecondary}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
                   {container.customerName}
                 </ThemedText>
               ) : null}
@@ -133,29 +159,29 @@ export default function TaskDetailScreen() {
           </View>
 
           <View style={styles.infoRow}>
-            <Feather name="clock" size={20} color={Colors.light.textSecondary} />
+            <Feather name="clock" size={20} color={theme.textSecondary} />
             <View style={styles.infoContent}>
-              <ThemedText type="small" style={styles.infoLabel}>Geplante Zeit</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>Geplante Zeit</ThemedText>
               <ThemedText type="body">{formatDate(task.scheduledTime)}</ThemedText>
             </View>
           </View>
 
-          {task.estimatedAmount ? (
+          {task.plannedQuantity || task.estimatedAmount ? (
             <View style={styles.infoRow}>
-              <Feather name="truck" size={20} color={Colors.light.textSecondary} />
+              <Feather name="truck" size={20} color={theme.textSecondary} />
               <View style={styles.infoContent}>
-                <ThemedText type="small" style={styles.infoLabel}>Geschätzte Menge</ThemedText>
-                <ThemedText type="body">{task.estimatedAmount} kg</ThemedText>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>Geschätzte Menge</ThemedText>
+                <ThemedText type="body">{task.plannedQuantity || task.estimatedAmount} {task.plannedQuantityUnit || "kg"}</ThemedText>
               </View>
             </View>
           ) : null}
 
           {task.priority && task.priority !== "normal" ? (
             <View style={styles.infoRow}>
-              <Feather name="alert-triangle" size={20} color={Colors.light.warning} />
+              <Feather name="alert-triangle" size={20} color={theme.warning} />
               <View style={styles.infoContent}>
-                <ThemedText type="small" style={styles.infoLabel}>Priorität</ThemedText>
-                <ThemedText type="body" style={{ color: Colors.light.warning }}>
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>Priorität</ThemedText>
+                <ThemedText type="body" style={{ color: theme.warning }}>
                   {task.priority === "high" ? "Hoch" : task.priority === "urgent" ? "Dringend" : task.priority}
                 </ThemedText>
               </View>
@@ -164,55 +190,75 @@ export default function TaskDetailScreen() {
         </Card>
 
         {task.notes ? (
-          <Card style={styles.notesCard}>
+          <Card style={[styles.notesCard, { backgroundColor: theme.cardSurface }]}>
             <ThemedText type="h4" style={styles.sectionTitle}>
               Anweisungen
             </ThemedText>
-            <ThemedText type="body" style={styles.notes}>
+            <ThemedText type="body">
               {task.notes}
             </ThemedText>
           </Card>
         ) : null}
 
-        {task.pickupTimestamp ? (
-          <Card style={styles.timestampCard}>
+        {hasAnyTimestamp ? (
+          <Card style={[styles.timestampCard, { backgroundColor: theme.cardSurface }]}>
             <ThemedText type="h4" style={styles.sectionTitle}>
-              Aktivität
+              Aktivitätsverlauf
             </ThemedText>
-            <View style={styles.timestampRow}>
-              <View style={[styles.timestampDot, { backgroundColor: Colors.light.statusInProgress }]} />
-              <View>
-                <ThemedText type="body">Abgeholt</ThemedText>
-                <ThemedText type="small" style={styles.infoSecondary}>
-                  {formatDate(task.pickupTimestamp)}
-                </ThemedText>
-              </View>
-            </View>
-            {task.deliveryTimestamp ? (
-              <View style={styles.timestampRow}>
-                <View style={[styles.timestampDot, { backgroundColor: Colors.light.statusCompleted }]} />
-                <View>
-                  <ThemedText type="body">Geliefert an {task.deliveryContainerID}</ThemedText>
-                  <ThemedText type="small" style={styles.infoSecondary}>
-                    {formatDate(task.deliveryTimestamp)}
-                  </ThemedText>
+            {lifecycleSteps.map((step, index) => {
+              if (!step.timestamp && step.status !== task.status) return null;
+              const isCompleted = !!step.timestamp;
+              const isCurrent = step.status === task.status && !step.timestamp;
+              
+              let stepColor = theme.textSecondary;
+              if (isCompleted) {
+                stepColor = step.status === "CANCELLED" ? theme.statusCancelled : theme.statusCompleted;
+              } else if (isCurrent) {
+                stepColor = theme.statusInProgress;
+              }
+
+              return (
+                <View key={step.status} style={styles.timestampRow}>
+                  <View style={styles.timelineIndicator}>
+                    <View style={[styles.timestampDot, { backgroundColor: stepColor }]} />
+                    {index < lifecycleSteps.length - 1 && lifecycleSteps[index + 1]?.timestamp ? (
+                      <View style={[styles.timelineLine, { backgroundColor: theme.border }]} />
+                    ) : null}
+                  </View>
+                  <View style={styles.timelineContent}>
+                    <View style={styles.timelineHeader}>
+                      <Feather name={step.icon} size={16} color={stepColor} />
+                      <ThemedText type="body" style={{ marginLeft: Spacing.xs, color: isCompleted ? theme.text : theme.textSecondary }}>
+                        {step.label}
+                      </ThemedText>
+                    </View>
+                    {step.timestamp ? (
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                        {formatDate(step.timestamp)}
+                      </ThemedText>
+                    ) : isCurrent ? (
+                      <ThemedText type="small" style={{ color: theme.statusInProgress }}>
+                        Aktueller Status
+                      </ThemedText>
+                    ) : null}
+                  </View>
                 </View>
-              </View>
-            ) : null}
+              );
+            })}
           </Card>
         ) : null}
 
-        {task.status === "open" || task.status === "in_progress" ? (
+        {isActive ? (
           <View style={styles.actions}>
-            <Button onPress={handleNavigation} style={styles.secondaryButton}>
+            <Button onPress={handleNavigation} style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.primary }]}>
               <View style={styles.buttonContent}>
-                <Feather name="navigation" size={20} color={Colors.light.primary} />
-                <ThemedText type="body" style={{ color: Colors.light.primary, fontWeight: "600" }}>
+                <Feather name="navigation" size={20} color={theme.primary} />
+                <ThemedText type="body" style={{ color: theme.primary, fontWeight: "600" }}>
                   Navigation starten
                 </ThemedText>
               </View>
             </Button>
-            <Button onPress={goToScanner} style={styles.primaryButton}>
+            <Button onPress={goToScanner} style={[styles.primaryButton, { backgroundColor: theme.accent }]}>
               <View style={styles.buttonContent}>
                 <Feather name="maximize" size={20} color="#FFFFFF" />
                 <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
@@ -230,7 +276,6 @@ export default function TaskDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
   },
   loadingContainer: {
     flex: 1,
@@ -248,7 +293,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   headerCard: {
-    backgroundColor: Colors.light.backgroundDefault,
+    padding: Spacing.lg,
   },
   headerRow: {
     flexDirection: "row",
@@ -261,13 +306,10 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   containerId: {
-    color: Colors.light.primary,
-  },
-  materialType: {
-    color: Colors.light.textSecondary,
+    fontWeight: "700",
   },
   infoCard: {
-    backgroundColor: Colors.light.backgroundDefault,
+    padding: Spacing.lg,
     gap: Spacing.md,
   },
   sectionTitle: {
@@ -281,46 +323,51 @@ const styles = StyleSheet.create({
   infoContent: {
     flex: 1,
   },
-  infoLabel: {
-    color: Colors.light.textSecondary,
-    marginBottom: 2,
-  },
-  infoSecondary: {
-    color: Colors.light.textSecondary,
-    marginTop: 2,
-  },
   notesCard: {
-    backgroundColor: Colors.light.backgroundDefault,
-  },
-  notes: {
-    color: Colors.light.text,
+    padding: Spacing.lg,
   },
   timestampCard: {
-    backgroundColor: Colors.light.backgroundDefault,
+    padding: Spacing.lg,
   },
   timestampRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: Spacing.md,
     marginTop: Spacing.sm,
+  },
+  timelineIndicator: {
+    alignItems: "center",
+    width: 24,
   },
   timestampDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    marginTop: 4,
+  },
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    minHeight: 20,
+    marginTop: Spacing.xs,
+  },
+  timelineContent: {
+    flex: 1,
+    marginLeft: Spacing.sm,
+    paddingBottom: Spacing.md,
+  },
+  timelineHeader: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   actions: {
     gap: Spacing.md,
     marginTop: Spacing.md,
   },
   primaryButton: {
-    backgroundColor: Colors.light.accent,
+    paddingVertical: Spacing.lg,
   },
   secondaryButton: {
-    backgroundColor: Colors.light.backgroundDefault,
     borderWidth: 2,
-    borderColor: Colors.light.primary,
+    paddingVertical: Spacing.lg,
   },
   buttonContent: {
     flexDirection: "row",

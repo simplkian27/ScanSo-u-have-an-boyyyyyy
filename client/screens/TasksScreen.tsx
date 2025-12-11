@@ -14,11 +14,15 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { TasksStackParamList } from "@/navigation/TasksStackNavigator";
-import { Task, CustomerContainer } from "@shared/schema";
+import { Task, CustomerContainer, TASK_STATUS_LABELS } from "@shared/schema";
 import { openMapsNavigation } from "@/lib/navigation";
 
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, "Tasks">;
 type StatusFilter = "all" | "open" | "in_progress" | "completed";
+
+const OPEN_STATUSES = ["PLANNED", "ASSIGNED"];
+const IN_PROGRESS_STATUSES = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
+const COMPLETED_STATUSES = ["COMPLETED"];
 
 export default function TasksScreen() {
   const headerHeight = useHeaderHeight();
@@ -54,18 +58,19 @@ export default function TasksScreen() {
 
   const myTasks = tasks.filter((task) => task.assignedTo === user?.id);
   const filteredTasks = myTasks.filter((task) => {
-    if (statusFilter === "all") return task.status !== "cancelled";
-    return task.status === statusFilter;
+    if (statusFilter === "all") return task.status !== "CANCELLED";
+    if (statusFilter === "open") return OPEN_STATUSES.includes(task.status);
+    if (statusFilter === "in_progress") return IN_PROGRESS_STATUSES.includes(task.status);
+    if (statusFilter === "completed") return COMPLETED_STATUSES.includes(task.status);
+    return true;
   });
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "open": return theme.statusOpen;
-      case "in_progress": return theme.statusInProgress;
-      case "completed": return theme.statusCompleted;
-      case "cancelled": return theme.statusCancelled;
-      default: return theme.statusOpen;
-    }
+    if (OPEN_STATUSES.includes(status)) return theme.statusOpen;
+    if (IN_PROGRESS_STATUSES.includes(status)) return theme.statusInProgress;
+    if (COMPLETED_STATUSES.includes(status)) return theme.statusCompleted;
+    if (status === "CANCELLED") return theme.statusCancelled;
+    return theme.statusOpen;
   };
 
   const formatDateTime = (date: string | Date | null) => {
@@ -77,22 +82,22 @@ export default function TasksScreen() {
   };
 
   const getPriorityIcon = (status: string) => {
-    if (status === "in_progress") return "zap";
-    if (status === "open") return "clock";
+    if (IN_PROGRESS_STATUSES.includes(status)) return "zap";
+    if (OPEN_STATUSES.includes(status)) return "clock";
     return "check-circle";
   };
 
   const taskCounts = {
-    all: myTasks.filter(t => t.status !== "cancelled").length,
-    open: myTasks.filter(t => t.status === "open").length,
-    in_progress: myTasks.filter(t => t.status === "in_progress").length,
-    completed: myTasks.filter(t => t.status === "completed").length,
+    all: myTasks.filter(t => t.status !== "CANCELLED").length,
+    open: myTasks.filter(t => OPEN_STATUSES.includes(t.status)).length,
+    in_progress: myTasks.filter(t => IN_PROGRESS_STATUSES.includes(t.status)).length,
+    completed: myTasks.filter(t => COMPLETED_STATUSES.includes(t.status)).length,
   };
 
   const renderTask = ({ item }: { item: Task }) => {
     const container = getContainerById(item.containerID);
     const hasLocation = container?.latitude && container?.longitude;
-    const isActive = item.status === "open" || item.status === "in_progress";
+    const isActive = OPEN_STATUSES.includes(item.status) || IN_PROGRESS_STATUSES.includes(item.status);
 
     return (
       <Card

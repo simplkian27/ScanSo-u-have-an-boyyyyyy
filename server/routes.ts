@@ -169,6 +169,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // CUSTOMERS
+  // ============================================================================
+
+  app.get("/api/customers", async (req, res) => {
+    try {
+      const customerList = await storage.getCustomers();
+      res.json(customerList);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch customers" });
+    }
+  });
+
+  app.get("/api/customers/:id", async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      res.json(customer);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch customer" });
+    }
+  });
+
+  app.post("/api/customers", async (req, res) => {
+    try {
+      const { name, address, contactName, contactPhone, contactEmail, notes } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: "Customer name is required" });
+      }
+
+      const customer = await storage.createCustomer({
+        name,
+        address: address || null,
+        contactName: contactName || null,
+        contactPhone: contactPhone || null,
+        contactEmail: contactEmail || null,
+        notes: notes || null,
+        isActive: true,
+      });
+
+      res.status(201).json(customer);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create customer" });
+    }
+  });
+
+  app.patch("/api/customers/:id", async (req, res) => {
+    try {
+      const customer = await storage.updateCustomer(req.params.id, req.body);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      res.json(customer);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update customer" });
+    }
+  });
+
+  // ============================================================================
+  // CUSTOMER CONTAINERS
+  // ============================================================================
+
   app.get("/api/containers/customer", async (req, res) => {
     try {
       const containers = await storage.getCustomerContainers();
@@ -222,6 +287,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to update container" });
     }
   });
+
+  // ============================================================================
+  // WAREHOUSE CONTAINERS
+  // ============================================================================
 
   app.get("/api/containers/warehouse", async (req, res) => {
     try {
@@ -286,6 +355,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // TASKS
+  // ============================================================================
+
   app.get("/api/tasks", async (req, res) => {
     try {
       const { assignedTo, status, date } = req.query;
@@ -316,7 +389,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tasks", async (req, res) => {
     try {
-      const task = await storage.createTask(req.body);
+      const taskData = {
+        ...req.body,
+        status: req.body.status || "PLANNED",
+      };
+      const task = await storage.createTask(taskData);
+      
+      await storage.createActivityLog({
+        type: "TASK_CREATED",
+        message: `Auftrag erstellt für Container ${task.containerID}`,
+        userId: req.body.createdBy || null,
+        taskId: task.id,
+        containerId: task.containerID,
+        timestamp: new Date(),
+      });
+
       res.status(201).json(task);
     } catch (error) {
       res.status(500).json({ error: "Failed to create task" });
@@ -335,28 +422,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tasks/:id/pickup", async (req, res) => {
+  app.post("/api/tasks/:id/assign", async (req, res) => {
     try {
-      const { userId, location } = req.body;
+      const { userId, assignedBy } = req.body;
       const task = await storage.getTask(req.params.id);
       
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
       }
 
-      const updatedTask = await storage.updateTask(req.params.id, {
-        status: "in_progress",
-        pickupTimestamp: new Date(),
+      const updatedTask = await storage.updateTaskStatus(req.params.id, "ASSIGNED", userId);
+      if (!updatedTask) {
+        return res.status(400).json({ error: "Invalid status transition" });
+      }
+
+      const driver = await storage.getUser(userId);
+      const driverName = driver?.name || "Unbekannt";
+
+      await storage.createActivityLog({
+        type: "TASK_ASSIGNED",
+        message: `Auftrag ${task.id} wurde Fahrer ${driverName} zugewiesen`,
+        userId: assignedBy || null,
+        taskId: task.id,
+        containerId: task.containerID,
+        timestamp: new Date(),
+      });
+
+      res.json(updatedTask);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to assign task" });
+    }
+  });
+
+  app.post("/api/tasks/:id/pickup", async (req, res) => {
+    try {
+      const { userId, location, geoLocation } = req.body;
+      const task = await storage.getTask(req.params.id);
+      
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      const updatedTask = await storage.updateTaskStatus(req.params.id, "ACCEPTED");
+      if (!updatedTask) {
+        return res.status(400).json({ error: "Invalid status transition" });
+      }
+
+      await storage.updateTask(req.params.id, {
         pickupLocation: location,
       });
 
+      const scanEvent = await storage.createScanEvent({
+        containerId: task.containerID,
+        containerType: "customer",
+        taskId: task.id,
+        scannedByUserId: userId,
+        scannedAt: new Date(),
+        scanContext: "TASK_ACCEPT_AT_CUSTOMER",
+        locationType: "CUSTOMER",
+        locationDetails: location,
+        geoLocation: geoLocation || null,
+      });
+
+      const driver = await storage.getUser(userId);
+      const driverName = driver?.name || "Unbekannt";
+
       await storage.createActivityLog({
+        type: "TASK_ACCEPTED",
+        message: `Fahrer ${driverName} hat Auftrag ${task.id} beim Kunden angenommen`,
         userId,
-        action: "pickup",
         taskId: task.id,
         containerId: task.containerID,
-        location,
-        details: `Picked up container ${task.containerID}`,
+        scanEventId: scanEvent.id,
+        location: geoLocation || null,
+        timestamp: new Date(),
       });
 
       res.json(updatedTask);
@@ -367,7 +506,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tasks/:id/delivery", async (req, res) => {
     try {
-      const { userId, warehouseContainerId, amount, location } = req.body;
+      const { userId, warehouseContainerId, amount, location, geoLocation } = req.body;
       const task = await storage.getTask(req.params.id);
       
       if (!task) {
@@ -388,10 +527,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Insufficient capacity", availableSpace });
       }
 
-      const updatedTask = await storage.updateTask(req.params.id, {
-        status: "completed",
-        deliveryTimestamp: new Date(),
+      let updatedTask = await storage.updateTaskStatus(req.params.id, "DELIVERED");
+      if (!updatedTask) {
+        return res.status(400).json({ error: "Invalid status transition" });
+      }
+
+      await storage.updateTask(req.params.id, {
         deliveryContainerID: warehouseContainerId,
+      });
+
+      const scanEvent = await storage.createScanEvent({
+        containerId: warehouseContainerId,
+        containerType: "warehouse",
+        taskId: task.id,
+        scannedByUserId: userId,
+        scannedAt: new Date(),
+        scanContext: "TASK_COMPLETE_AT_WAREHOUSE",
+        locationType: "WAREHOUSE",
+        locationDetails: warehouseContainer.warehouseZone || location,
+        geoLocation: geoLocation || null,
+      });
+
+      await storage.createActivityLog({
+        type: "TASK_DELIVERED",
+        message: `Container ${task.containerID} wurde im Lager abgeliefert`,
+        userId,
+        taskId: task.id,
+        containerId: warehouseContainerId,
+        scanEventId: scanEvent.id,
+        location: geoLocation || null,
+        timestamp: new Date(),
       });
 
       await storage.updateWarehouseContainer(warehouseContainerId, {
@@ -401,20 +566,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.createFillHistory({
         warehouseContainerId,
         amountAdded: amount,
+        quantityUnit: warehouseContainer.quantityUnit,
         taskId: task.id,
+        recordedByUserId: userId,
       });
 
       await storage.updateCustomerContainer(task.containerID, {
         lastEmptied: new Date(),
+        status: "AT_CUSTOMER",
       });
 
+      updatedTask = await storage.updateTaskStatus(req.params.id, "COMPLETED");
+      if (!updatedTask) {
+        return res.status(400).json({ error: "Failed to complete task" });
+      }
+
       await storage.createActivityLog({
+        type: "TASK_COMPLETED",
+        message: `Auftrag ${task.id} abgeschlossen, ${amount} kg erfasst`,
         userId,
-        action: "delivery",
         taskId: task.id,
         containerId: warehouseContainerId,
-        location,
-        details: `Delivered ${amount}kg to container ${warehouseContainerId}`,
+        timestamp: new Date(),
+        metadata: { amountAdded: amount, unit: warehouseContainer.quantityUnit },
       });
 
       res.json(updatedTask);
@@ -432,18 +606,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Task not found" });
       }
 
-      const updatedTask = await storage.updateTask(req.params.id, {
-        status: "cancelled",
+      const updatedTask = await storage.updateTaskStatus(req.params.id, "CANCELLED");
+      if (!updatedTask) {
+        return res.status(400).json({ error: "Invalid status transition - task may already be completed" });
+      }
+
+      await storage.updateTask(req.params.id, {
         cancellationReason: reason,
       });
 
       await storage.createActivityLog({
+        type: "TASK_CANCELLED",
+        message: `Auftrag ${task.id} wurde storniert: ${reason || 'Kein Grund angegeben'}`,
         userId,
-        action: "cancelled",
         taskId: task.id,
         containerId: task.containerID,
-        location: null,
-        details: `Task cancelled: ${reason}`,
+        timestamp: new Date(),
+        metadata: { reason },
       });
 
       res.json(updatedTask);
@@ -452,16 +631,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // SCAN EVENTS
+  // ============================================================================
+
+  app.get("/api/scan-events", async (req, res) => {
+    try {
+      const { containerId, taskId, userId } = req.query;
+      const filters: { containerId?: string; taskId?: string; userId?: string } = {};
+      
+      if (containerId) filters.containerId = containerId as string;
+      if (taskId) filters.taskId = taskId as string;
+      if (userId) filters.userId = userId as string;
+
+      const events = await storage.getScanEvents(Object.keys(filters).length > 0 ? filters : undefined);
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch scan events" });
+    }
+  });
+
+  app.get("/api/scan-events/:id", async (req, res) => {
+    try {
+      const event = await storage.getScanEvent(req.params.id);
+      if (!event) {
+        return res.status(404).json({ error: "Scan event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch scan event" });
+    }
+  });
+
+  app.post("/api/scan-events", async (req, res) => {
+    try {
+      const { containerId, containerType, userId, scanContext, locationType, locationDetails, geoLocation, taskId } = req.body;
+      
+      if (!containerId || !containerType || !userId || !scanContext || !locationType) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const scanEvent = await storage.createScanEvent({
+        containerId,
+        containerType,
+        taskId: taskId || null,
+        scannedByUserId: userId,
+        scannedAt: new Date(),
+        scanContext,
+        locationType,
+        locationDetails: locationDetails || null,
+        geoLocation: geoLocation || null,
+      });
+
+      const logType = locationType === "WAREHOUSE" ? "CONTAINER_SCANNED_AT_WAREHOUSE" : "CONTAINER_SCANNED_AT_CUSTOMER";
+      await storage.createActivityLog({
+        type: logType,
+        message: `Container ${containerId} wurde gescannt (${scanContext})`,
+        userId,
+        taskId: taskId || null,
+        containerId,
+        scanEventId: scanEvent.id,
+        location: geoLocation || null,
+        timestamp: new Date(),
+      });
+
+      res.status(201).json(scanEvent);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create scan event" });
+    }
+  });
+
+  // ============================================================================
+  // ACTIVITY LOGS
+  // ============================================================================
+
   app.get("/api/activity-logs", async (req, res) => {
     try {
-      const { userId, containerId, action, startDate, endDate } = req.query;
-      const filters: { userId?: string; containerId?: string; action?: string; startDate?: Date; endDate?: Date } = {};
+      const { userId, containerId, type, taskId, startDate, endDate } = req.query;
+      const filters: { userId?: string; containerId?: string; type?: string; taskId?: string } = {};
       
       if (userId) filters.userId = userId as string;
       if (containerId) filters.containerId = containerId as string;
-      if (action) filters.action = action as string;
-      if (startDate) filters.startDate = new Date(startDate as string);
-      if (endDate) filters.endDate = new Date(endDate as string);
+      if (type) filters.type = type as string;
+      if (taskId) filters.taskId = taskId as string;
 
       const logs = await storage.getActivityLogs(Object.keys(filters).length > 0 ? filters : undefined);
       res.json(logs);
@@ -472,51 +724,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/activity-logs/export/csv", async (req, res) => {
     try {
-      const { userId, containerId, action, startDate, endDate } = req.query;
-      const filters: { userId?: string; containerId?: string; action?: string; startDate?: Date; endDate?: Date } = {};
+      const { userId, containerId, type, taskId, startDate, endDate } = req.query;
+      const filters: { userId?: string; containerId?: string; type?: string; taskId?: string } = {};
       
       if (userId) filters.userId = userId as string;
       if (containerId) filters.containerId = containerId as string;
-      if (action) filters.action = action as string;
-      if (startDate) filters.startDate = new Date(startDate as string);
-      if (endDate) filters.endDate = new Date(endDate as string);
+      if (type) filters.type = type as string;
+      if (taskId) filters.taskId = taskId as string;
 
       const logs = await storage.getActivityLogs(Object.keys(filters).length > 0 ? filters : undefined);
       const users = await storage.getUsers();
       
-      const getUserName = (id: string) => {
+      const getUserName = (id: string | null) => {
+        if (!id) return "System";
         const user = users.find(u => u.id === id);
         return user?.name || "Unknown";
       };
 
-      const csvHeader = "ID,Date,Time,Driver,Action,Container ID,Task ID,Details\n";
+      const csvHeader = "ID,Datum,Uhrzeit,Benutzer,Typ,Nachricht,Container ID,Auftrag ID\n";
       const csvRows = logs.map(log => {
-        const date = new Date(log.createdAt);
-        const dateStr = date.toLocaleDateString("en-US");
-        const timeStr = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-        const driverName = getUserName(log.userId).replace(/,/g, ";");
-        const action = log.action.replace(/,/g, ";");
-        const containerId = log.containerId?.replace(/,/g, ";") || "";
-        const taskId = log.taskId?.replace(/,/g, ";") || "";
-        const details = log.details?.replace(/,/g, ";").replace(/\n/g, " ") || "";
-        return `${log.id},${dateStr},${timeStr},${driverName},${action},${containerId},${taskId},${details}`;
+        const date = new Date(log.timestamp);
+        const dateStr = date.toLocaleDateString("de-DE");
+        const timeStr = date.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+        const userName = getUserName(log.userId).replace(/,/g, ";");
+        const logType = (log.type || "").replace(/,/g, ";");
+        const message = (log.message || "").replace(/,/g, ";").replace(/\n/g, " ");
+        const containerId = (log.containerId || "").replace(/,/g, ";");
+        const taskIdVal = (log.taskId || "").replace(/,/g, ";");
+        return `${log.id},${dateStr},${timeStr},${userName},${logType},${message},${containerId},${taskIdVal}`;
       }).join("\n");
 
       const csv = csvHeader + csvRows;
       
-      res.setHeader("Content-Type", "text/csv");
-      res.setHeader("Content-Disposition", `attachment; filename=activity-log-${new Date().toISOString().split("T")[0]}.csv`);
-      res.send(csv);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename=aktivitaetslog-${new Date().toISOString().split("T")[0]}.csv`);
+      res.send("\uFEFF" + csv);
     } catch (error) {
       res.status(500).json({ error: "Failed to export activity logs" });
     }
   });
 
+  // ============================================================================
+  // ANALYTICS
+  // ============================================================================
+
   app.get("/api/analytics/driver-performance", async (req, res) => {
     try {
       const allTasks = await storage.getTasks();
       const users = await storage.getUsers();
-      const drivers = users.filter(u => u.role === "driver");
+      const drivers = users.filter(u => u.role === "driver" || u.role === "DRIVER");
       
       const now = new Date();
       const today = now.toDateString();
@@ -525,21 +781,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const driverStats = drivers.map(driver => {
         const driverTasks = allTasks.filter(t => t.assignedTo === driver.id);
-        const completedTasks = driverTasks.filter(t => t.status === "completed");
+        const completedTasks = driverTasks.filter(t => t.status === "COMPLETED" || t.status === "completed");
         const completedToday = completedTasks.filter(t => {
-          if (!t.deliveryTimestamp) return false;
-          return new Date(t.deliveryTimestamp).toDateString() === today;
+          if (!t.completedAt) return false;
+          return new Date(t.completedAt).toDateString() === today;
         });
         const completedThisWeek = completedTasks.filter(t => {
-          if (!t.deliveryTimestamp) return false;
-          const deliveryDate = new Date(t.deliveryTimestamp);
-          return deliveryDate >= startOfWeek;
+          if (!t.completedAt) return false;
+          const completedDate = new Date(t.completedAt);
+          return completedDate >= startOfWeek;
         });
 
         const avgDeliveryTime = completedTasks.length > 0 
           ? completedTasks.reduce((sum, t) => {
-              if (t.pickupTimestamp && t.deliveryTimestamp) {
-                return sum + (new Date(t.deliveryTimestamp).getTime() - new Date(t.pickupTimestamp).getTime());
+              if (t.acceptedAt && t.completedAt) {
+                return sum + (new Date(t.completedAt).getTime() - new Date(t.acceptedAt).getTime());
               }
               return sum;
             }, 0) / completedTasks.length / (1000 * 60)
@@ -549,6 +805,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? Math.round((completedTasks.length / driverTasks.length) * 100)
           : 0;
 
+        const inProgressStatuses = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED", "in_progress"];
         return {
           id: driver.id,
           name: driver.name,
@@ -557,7 +814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalCompleted: completedTasks.length,
           completedToday: completedToday.length,
           completedThisWeek: completedThisWeek.length,
-          inProgress: driverTasks.filter(t => t.status === "in_progress").length,
+          inProgress: driverTasks.filter(t => inProgressStatuses.includes(t.status)).length,
           completionRate,
           avgDeliveryTimeMinutes: Math.round(avgDeliveryTime),
         };
@@ -597,17 +854,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dailyData = [];
       for (let i = 6; i >= 0; i--) {
         const date = daysAgo(i);
-        const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        const dateStr = date.toLocaleDateString("de-DE", { month: "short", day: "numeric" });
         
         const dayTasks = allTasks.filter(t => {
-          if (!t.deliveryTimestamp) return false;
-          const taskDate = new Date(t.deliveryTimestamp);
+          if (!t.completedAt) return false;
+          const taskDate = new Date(t.completedAt);
           return taskDate.toDateString() === date.toDateString();
         });
 
         const totalDelivered = dayTasks.reduce((sum, t) => {
           const container = warehouseContainers.find(c => c.id === t.deliveryContainerID);
-          return sum + (container ? 50 : 0); // Estimate per delivery
+          return sum + (container ? 50 : 0);
         }, 0);
 
         dailyData.push({
@@ -667,10 +924,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return created >= today && created <= todayEnd;
       });
 
-      const openTasks = allTasks.filter(t => t.status === "open").length;
-      const inProgressTasks = allTasks.filter(t => t.status === "in_progress").length;
-      const completedToday = todayTasks.filter(t => t.status === "completed").length;
-      const activeDrivers = users.filter(u => u.role === "driver" && u.isActive).length;
+      const openStatuses = ["PLANNED", "open"];
+      const inProgressStatuses = ["ASSIGNED", "ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED", "in_progress"];
+      const completedStatuses = ["COMPLETED", "completed"];
+
+      const openTasks = allTasks.filter(t => openStatuses.includes(t.status)).length;
+      const inProgressTasks = allTasks.filter(t => inProgressStatuses.includes(t.status)).length;
+      const completedToday = todayTasks.filter(t => completedStatuses.includes(t.status)).length;
+      const activeDrivers = users.filter(u => (u.role === "driver" || u.role === "DRIVER") && u.isActive).length;
 
       const criticalContainers = warehouseContainers.filter(c => {
         const fillPercentage = (c.currentAmount / c.maxCapacity) * 100;

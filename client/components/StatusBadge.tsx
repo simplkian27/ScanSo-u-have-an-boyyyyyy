@@ -3,6 +3,7 @@ import { View, StyleSheet } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, IndustrialDesign } from "@/constants/theme";
+import { TASK_STATUS_LABELS } from "@shared/schema";
 
 interface StatusBadgeProps {
   status: string;
@@ -15,6 +16,54 @@ export function StatusBadge({ status, label: customLabel, size = "medium" }: Sta
   
   const getStatusConfig = () => {
     switch (status) {
+      case "PLANNED":
+        return {
+          label: TASK_STATUS_LABELS.PLANNED || "Geplant",
+          color: "#FFFFFF",
+          backgroundColor: theme.statusOpen,
+        };
+      case "ASSIGNED":
+        return {
+          label: TASK_STATUS_LABELS.ASSIGNED || "Zugewiesen",
+          color: "#FFFFFF",
+          backgroundColor: theme.statusOpen,
+        };
+      case "ACCEPTED":
+        return {
+          label: TASK_STATUS_LABELS.ACCEPTED || "Angenommen",
+          color: "#1E293B",
+          backgroundColor: theme.statusInProgress,
+        };
+      case "PICKED_UP":
+        return {
+          label: TASK_STATUS_LABELS.PICKED_UP || "Abgeholt",
+          color: "#1E293B",
+          backgroundColor: theme.statusInProgress,
+        };
+      case "IN_TRANSIT":
+        return {
+          label: TASK_STATUS_LABELS.IN_TRANSIT || "Unterwegs",
+          color: "#1E293B",
+          backgroundColor: theme.statusInProgress,
+        };
+      case "DELIVERED":
+        return {
+          label: TASK_STATUS_LABELS.DELIVERED || "Geliefert",
+          color: "#FFFFFF",
+          backgroundColor: theme.statusCompleted,
+        };
+      case "COMPLETED":
+        return {
+          label: TASK_STATUS_LABELS.COMPLETED || "Abgeschlossen",
+          color: "#FFFFFF",
+          backgroundColor: theme.statusCompleted,
+        };
+      case "CANCELLED":
+        return {
+          label: TASK_STATUS_LABELS.CANCELLED || "Storniert",
+          color: "#FFFFFF",
+          backgroundColor: theme.statusCancelled,
+        };
       case "open":
         return {
           label: "Offen",

@@ -10,25 +10,34 @@ import { Card } from "@/components/Card";
 import { FilterChip } from "@/components/FilterChip";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
-import { ActivityLog, User } from "@shared/schema";
+import { ActivityLog, User, ACTIVITY_LOG_TYPE_LABELS } from "@shared/schema";
 import { getApiUrl } from "@/lib/query-client";
 
 type UserWithoutPassword = Omit<User, "password">;
-type ActionFilter = "all" | "pickup" | "delivery" | "cancelled";
+type TypeFilter = "all" | "TASK_ACCEPTED" | "TASK_COMPLETED" | "TASK_CANCELLED";
 
 export default function ActivityLogScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
-  const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [isExporting, setIsExporting] = useState(false);
 
-  const actionConfig: Record<string, { icon: keyof typeof Feather.glyphMap; color: string; label: string }> = {
-    pickup: { icon: "log-in", color: theme.statusInProgress, label: "Abholung" },
-    delivery: { icon: "log-out", color: theme.statusCompleted, label: "Lieferung" },
-    cancelled: { icon: "x-circle", color: theme.statusCancelled, label: "Storniert" },
-    manual_edit: { icon: "edit", color: theme.primary, label: "Bearbeitet" },
-    emptied: { icon: "refresh-ccw", color: theme.fillLow, label: "Geleert" },
+  const typeConfig: Record<string, { icon: keyof typeof Feather.glyphMap; color: string; label: string }> = {
+    TASK_CREATED: { icon: "plus-circle", color: theme.statusOpen, label: ACTIVITY_LOG_TYPE_LABELS.TASK_CREATED || "Auftrag erstellt" },
+    TASK_ASSIGNED: { icon: "user-check", color: theme.statusOpen, label: ACTIVITY_LOG_TYPE_LABELS.TASK_ASSIGNED || "Auftrag zugewiesen" },
+    TASK_ACCEPTED: { icon: "check-circle", color: theme.statusInProgress, label: ACTIVITY_LOG_TYPE_LABELS.TASK_ACCEPTED || "Auftrag angenommen" },
+    TASK_PICKED_UP: { icon: "log-in", color: theme.statusInProgress, label: ACTIVITY_LOG_TYPE_LABELS.TASK_PICKED_UP || "Container abgeholt" },
+    TASK_IN_TRANSIT: { icon: "truck", color: theme.statusInProgress, label: ACTIVITY_LOG_TYPE_LABELS.TASK_IN_TRANSIT || "Transport gestartet" },
+    TASK_DELIVERED: { icon: "log-out", color: theme.statusCompleted, label: ACTIVITY_LOG_TYPE_LABELS.TASK_DELIVERED || "Container geliefert" },
+    TASK_COMPLETED: { icon: "check-square", color: theme.statusCompleted, label: ACTIVITY_LOG_TYPE_LABELS.TASK_COMPLETED || "Auftrag abgeschlossen" },
+    TASK_CANCELLED: { icon: "x-circle", color: theme.statusCancelled, label: ACTIVITY_LOG_TYPE_LABELS.TASK_CANCELLED || "Auftrag storniert" },
+    CONTAINER_SCANNED_AT_CUSTOMER: { icon: "scan", color: theme.primary, label: ACTIVITY_LOG_TYPE_LABELS.CONTAINER_SCANNED_AT_CUSTOMER || "Container beim Kunden gescannt" },
+    CONTAINER_SCANNED_AT_WAREHOUSE: { icon: "scan", color: theme.primary, label: ACTIVITY_LOG_TYPE_LABELS.CONTAINER_SCANNED_AT_WAREHOUSE || "Container im Lager gescannt" },
+    CONTAINER_STATUS_CHANGED: { icon: "refresh-cw", color: theme.primary, label: ACTIVITY_LOG_TYPE_LABELS.CONTAINER_STATUS_CHANGED || "Container-Status geändert" },
+    WEIGHT_RECORDED: { icon: "database", color: theme.primary, label: ACTIVITY_LOG_TYPE_LABELS.WEIGHT_RECORDED || "Gewicht erfasst" },
+    MANUAL_EDIT: { icon: "edit", color: theme.primary, label: ACTIVITY_LOG_TYPE_LABELS.MANUAL_EDIT || "Manuelle Bearbeitung" },
+    SYSTEM_EVENT: { icon: "settings", color: theme.textSecondary, label: ACTIVITY_LOG_TYPE_LABELS.SYSTEM_EVENT || "Systemereignis" },
   };
 
   const { data: logs = [], isLoading, refetch, isRefetching } = useQuery<ActivityLog[]>({
@@ -39,9 +48,10 @@ export default function ActivityLogScreen() {
     queryKey: ["/api/users"],
   });
 
-  const getUserName = (userId: string) => {
+  const getUserName = (userId: string | null) => {
+    if (!userId) return "System";
     const user = users.find((u) => u.id === userId);
-    return user?.name || "Unknown User";
+    return user?.name || "Unbekannter Benutzer";
   };
 
   const handleExportCSV = async () => {
@@ -57,7 +67,7 @@ export default function ActivityLogScreen() {
 
     setIsExporting(true);
     try {
-      const filterParam = actionFilter !== "all" ? `?action=${actionFilter}` : "";
+      const filterParam = typeFilter !== "all" ? `?type=${typeFilter}` : "";
       const exportUrl = `${getApiUrl()}/api/activity-logs/export/csv${filterParam}`;
       
       await Linking.openURL(exportUrl);
@@ -70,8 +80,8 @@ export default function ActivityLogScreen() {
   };
 
   const filteredLogs = logs.filter((log) => {
-    if (actionFilter === "all") return true;
-    return log.action === actionFilter;
+    if (typeFilter === "all") return true;
+    return log.type === typeFilter;
   });
 
   const formatDate = (date: string | Date) => {
@@ -96,7 +106,7 @@ export default function ActivityLogScreen() {
   };
 
   const renderLog = ({ item }: { item: ActivityLog }) => {
-    const config = actionConfig[item.action] || { icon: "activity", color: theme.textSecondary, label: item.action };
+    const config = typeConfig[item.type] || { icon: "activity", color: theme.textSecondary, label: item.type };
 
     return (
       <Card style={styles.logCard}>
@@ -110,15 +120,15 @@ export default function ActivityLogScreen() {
                 {config.label}
               </ThemedText>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {formatDate(item.createdAt)}
+                {formatDate(item.timestamp || item.createdAt)}
               </ThemedText>
             </View>
             <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 2 }}>
               {getUserName(item.userId)}
             </ThemedText>
-            {item.details ? (
+            {item.message ? (
               <ThemedText type="small" style={{ marginTop: Spacing.xs }}>
-                {item.details}
+                {item.message}
               </ThemedText>
             ) : null}
             {item.containerId ? (
@@ -153,28 +163,28 @@ export default function ActivityLogScreen() {
         <View style={styles.filterRow}>
           <FilterChip
             label="Alle"
-            selected={actionFilter === "all"}
-            onPress={() => setActionFilter("all")}
+            selected={typeFilter === "all"}
+            onPress={() => setTypeFilter("all")}
             small
           />
           <FilterChip
-            label="Abholungen"
-            selected={actionFilter === "pickup"}
-            onPress={() => setActionFilter("pickup")}
+            label="Angenommen"
+            selected={typeFilter === "TASK_ACCEPTED"}
+            onPress={() => setTypeFilter("TASK_ACCEPTED")}
             color={theme.statusInProgress}
             small
           />
           <FilterChip
-            label="Lieferungen"
-            selected={actionFilter === "delivery"}
-            onPress={() => setActionFilter("delivery")}
+            label="Abgeschlossen"
+            selected={typeFilter === "TASK_COMPLETED"}
+            onPress={() => setTypeFilter("TASK_COMPLETED")}
             color={theme.statusCompleted}
             small
           />
           <FilterChip
             label="Storniert"
-            selected={actionFilter === "cancelled"}
-            onPress={() => setActionFilter("cancelled")}
+            selected={typeFilter === "TASK_CANCELLED"}
+            onPress={() => setTypeFilter("TASK_CANCELLED")}
             color={theme.statusCancelled}
             small
           />

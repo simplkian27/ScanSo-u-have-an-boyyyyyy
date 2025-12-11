@@ -15,7 +15,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { Task, CustomerContainer, WarehouseContainer } from "@shared/schema";
+import { Task, CustomerContainer, WarehouseContainer, SCAN_CONTEXT_LABELS } from "@shared/schema";
 
 type TaskScanMode = "pickup" | "delivery";
 type AppMode = "info" | "task";
@@ -24,6 +24,9 @@ interface ScanResult {
   type: "customer" | "warehouse";
   container: CustomerContainer | WarehouseContainer;
 }
+
+const OPEN_STATUSES = ["PLANNED", "ASSIGNED"];
+const IN_PROGRESS_STATUSES = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
 
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
@@ -45,7 +48,7 @@ export default function ScannerScreen() {
   });
 
   const inProgressTask = tasks.find(
-    (t) => t.status === "in_progress" && t.assignedTo === user?.id
+    (t) => IN_PROGRESS_STATUSES.includes(t.status) && t.assignedTo === user?.id
   );
 
   const taskScanMode: TaskScanMode = inProgressTask ? "delivery" : "pickup";
@@ -75,13 +78,13 @@ export default function ScannerScreen() {
         
         if (appMode === "task") {
           const relatedTask = tasks.find(
-            (t) => t.containerID === container.id && t.status === "open" && t.assignedTo === user?.id
+            (t) => t.containerID === container.id && OPEN_STATUSES.includes(t.status) && t.assignedTo === user?.id
           );
           if (relatedTask) {
             setActiveTask(relatedTask);
           } else {
             const hasAnyTaskForContainer = tasks.some(
-              (t) => t.containerID === container.id && t.assignedTo === user?.id && (t.status === "open" || t.status === "in_progress")
+              (t) => t.containerID === container.id && t.assignedTo === user?.id && (OPEN_STATUSES.includes(t.status) || IN_PROGRESS_STATUSES.includes(t.status))
             );
             if (!hasAnyTaskForContainer) {
               setError("Dieser Container gehört nicht zu Ihren Aufgaben.");
@@ -141,6 +144,7 @@ export default function ScannerScreen() {
       await apiRequest("POST", `/api/tasks/${activeTask.id}/pickup`, {
         userId: user.id,
         location,
+        scanContext: "TASK_ACCEPT_AT_CUSTOMER",
       });
 
       setSuccess("Abholung bestätigt! Container ist jetzt unterwegs.");
@@ -182,7 +186,7 @@ export default function ScannerScreen() {
     }
 
     const availableSpace = warehouseContainer.maxCapacity - warehouseContainer.currentAmount;
-    const estimatedAmount = activeTask.estimatedAmount || 0;
+    const estimatedAmount = activeTask.plannedQuantity || activeTask.estimatedAmount || 0;
 
     if (estimatedAmount > availableSpace) {
       setError(`Kapazität unzureichend! Nur ${availableSpace.toFixed(0)}kg verfügbar, aber ${estimatedAmount}kg benötigt.`);
@@ -198,6 +202,7 @@ export default function ScannerScreen() {
         warehouseContainerId: warehouseContainer.id,
         amount: estimatedAmount,
         location,
+        scanContext: "TASK_COMPLETE_AT_WAREHOUSE",
       });
 
       setSuccess("Lieferung bestätigt! Aufgabe abgeschlossen.");
@@ -273,7 +278,7 @@ export default function ScannerScreen() {
               </ThemedText>
             </View>
             <StatusBadge 
-              status={container.isActive ? "completed" : "cancelled"} 
+              status={container.isActive ? "active" : "inactive"} 
               size="small"
             />
           </View>
@@ -436,7 +441,7 @@ export default function ScannerScreen() {
                 </View>
               ) : null}
 
-              {activeTask.estimatedAmount ? (
+              {activeTask.plannedQuantity || activeTask.estimatedAmount ? (
                 <View style={styles.taskInfoItem}>
                   <View style={styles.taskInfoLabelRow}>
                     <Feather name="database" size={14} color={theme.textSecondary} />
@@ -444,7 +449,7 @@ export default function ScannerScreen() {
                       Geschätzte Menge
                     </ThemedText>
                   </View>
-                  <ThemedText type="body">{activeTask.estimatedAmount} kg</ThemedText>
+                  <ThemedText type="body">{activeTask.plannedQuantity || activeTask.estimatedAmount} {activeTask.plannedQuantityUnit || "kg"}</ThemedText>
                 </View>
               ) : null}
 
@@ -456,7 +461,7 @@ export default function ScannerScreen() {
                   </ThemedText>
                 </View>
                 <StatusBadge 
-                  status={activeTask.priority === "urgent" ? "cancelled" : activeTask.priority === "high" ? "in_progress" : "open"} 
+                  status={activeTask.priority === "urgent" ? "critical" : activeTask.priority === "high" ? "warning" : "success"} 
                   size="small"
                   label={activeTask.priority === "urgent" ? "Dringend" : activeTask.priority === "high" ? "Hoch" : "Normal"}
                 />
@@ -591,8 +596,13 @@ export default function ScannerScreen() {
               ]}
               onPress={() => setAppMode("info")}
             >
-              <Feather name="info" size={18} color="#FFFFFF" />
-              <ThemedText type="small" style={styles.segmentText}>Info</ThemedText>
+              <Feather name="info" size={18} color={appMode === "info" ? "#FFFFFF" : theme.textSecondary} />
+              <ThemedText
+                type="smallBold"
+                style={{ color: appMode === "info" ? "#FFFFFF" : theme.textSecondary }}
+              >
+                Info
+              </ThemedText>
             </Pressable>
             <Pressable
               style={[
@@ -601,54 +611,48 @@ export default function ScannerScreen() {
               ]}
               onPress={() => setAppMode("task")}
             >
-              <Feather name="clipboard" size={18} color="#FFFFFF" />
-              <ThemedText type="small" style={styles.segmentText}>Aufgabe</ThemedText>
+              <Feather name="clipboard" size={18} color={appMode === "task" ? "#FFFFFF" : theme.textSecondary} />
+              <ThemedText
+                type="smallBold"
+                style={{ color: appMode === "task" ? "#FFFFFF" : theme.textSecondary }}
+              >
+                Aufgabe
+              </ThemedText>
             </Pressable>
           </View>
-          
-          {appMode === "task" ? (
-            <View style={[styles.scanModeIndicator, { backgroundColor: theme.accent }]}>
-              <Feather name={taskScanMode === "pickup" ? "log-in" : "log-out"} size={14} color="#FFFFFF" />
-              <ThemedText type="caption" style={styles.scanModeText}>
-                {taskScanMode === "pickup" ? "Scannen für Abholung" : "Scannen für Lieferung"}
-              </ThemedText>
-            </View>
-          ) : (
-            <View style={[styles.scanModeIndicator, { backgroundColor: theme.info }]}>
-              <ThemedText type="caption" style={styles.scanModeText}>
-                Nur Container-Information anzeigen
-              </ThemedText>
-            </View>
-          )}
+
+          <Pressable
+            style={[styles.flashButton, { backgroundColor: flashOn ? theme.accent : "rgba(0,0,0,0.6)" }]}
+            onPress={() => setFlashOn(!flashOn)}
+          >
+            <Feather name={flashOn ? "zap" : "zap-off"} size={20} color="#FFFFFF" />
+          </Pressable>
         </View>
 
-        <View style={styles.scannerFrame}>
-          <View style={[styles.corner, { borderColor: theme.accent }]} />
-          <View style={[styles.corner, styles.topRight, { borderColor: theme.accent }]} />
-          <View style={[styles.corner, styles.bottomLeft, { borderColor: theme.accent }]} />
-          <View style={[styles.corner, styles.bottomRight, { borderColor: theme.accent }]} />
+        <View style={styles.scanArea}>
+          <View style={styles.scanFrame}>
+            <View style={[styles.cornerTopLeft, { borderColor: theme.accent }]} />
+            <View style={[styles.cornerTopRight, { borderColor: theme.accent }]} />
+            <View style={[styles.cornerBottomLeft, { borderColor: theme.accent }]} />
+            <View style={[styles.cornerBottomRight, { borderColor: theme.accent }]} />
+          </View>
         </View>
 
-        <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing["5xl"] }]}>
-          {appMode === "task" && inProgressTask ? (
-            <View style={styles.activeTaskBanner}>
-              <Feather name="truck" size={20} color={theme.statusInProgress} />
-              <ThemedText type="small" style={styles.activeTaskText}>
-                Unterwegs: {inProgressTask.containerID}
+        <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
+          <View style={[styles.modeIndicator, { backgroundColor: "rgba(0,0,0,0.7)" }]}>
+            <Feather name={getModeIcon() as any} size={20} color={appMode === "info" ? theme.info : theme.accent} />
+            <ThemedText type="bodyBold" style={{ color: "#FFFFFF", marginLeft: Spacing.sm }}>
+              {getModeDisplayText()}
+            </ThemedText>
+          </View>
+          {inProgressTask ? (
+            <View style={[styles.activeTaskBanner, { backgroundColor: `${theme.statusInProgress}20` }]}>
+              <Feather name="truck" size={16} color={theme.statusInProgress} />
+              <ThemedText type="small" style={{ color: theme.statusInProgress, marginLeft: Spacing.xs }}>
+                Aufgabe läuft - scannen Sie den Zielcontainer
               </ThemedText>
             </View>
           ) : null}
-
-          <Pressable
-            style={[styles.flashButton, flashOn && styles.flashButtonActive]}
-            onPress={() => setFlashOn(!flashOn)}
-          >
-            <Feather
-              name={flashOn ? "zap" : "zap-off"}
-              size={24}
-              color={flashOn ? theme.accent : "#FFFFFF"}
-            />
-          </Pressable>
         </View>
       </View>
 
@@ -659,11 +663,13 @@ export default function ScannerScreen() {
         onRequestClose={closeModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot, paddingBottom: insets.bottom + Spacing.xl }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot }]}>
             {success ? (
-              <View style={styles.successState}>
-                <Feather name="check-circle" size={64} color={theme.success} />
-                <ThemedText type="h4" style={[styles.successText, { color: theme.success }]}>
+              <View style={styles.successContainer}>
+                <View style={[styles.successIcon, { backgroundColor: `${theme.success}20` }]}>
+                  <Feather name="check-circle" size={48} color={theme.success} />
+                </View>
+                <ThemedText type="h3" style={{ textAlign: "center", marginTop: Spacing.lg }}>
                   {success}
                 </ThemedText>
               </View>
@@ -682,7 +688,6 @@ export default function ScannerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
   },
   permissionContainer: {
     justifyContent: "center",
@@ -690,137 +695,137 @@ const styles = StyleSheet.create({
   },
   permissionContent: {
     alignItems: "center",
-    padding: Spacing["2xl"],
-    gap: Spacing.md,
+    padding: Spacing["3xl"],
   },
   permissionTitle: {
+    marginTop: Spacing.xl,
     textAlign: "center",
-    marginTop: Spacing.lg,
   },
   permissionText: {
+    marginTop: Spacing.md,
     textAlign: "center",
   },
   permissionButton: {
-    marginTop: Spacing.lg,
+    marginTop: Spacing.xl,
     paddingHorizontal: Spacing["3xl"],
   },
   permissionHint: {
+    marginTop: Spacing.lg,
     textAlign: "center",
-    marginTop: Spacing.md,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "space-between",
   },
   header: {
-    padding: Spacing.lg,
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
   },
   segmentedControl: {
     flexDirection: "row",
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.md,
     padding: 4,
-    gap: 4,
   },
   segmentButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-  },
-  segmentText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
-  },
-  scanModeIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.sm,
+    gap: Spacing.xs,
   },
-  scanModeText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
+  flashButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  scannerFrame: {
-    width: 250,
-    height: 250,
-    alignSelf: "center",
+  scanArea: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  corner: {
+  scanFrame: {
+    width: 280,
+    height: 280,
+    position: "relative",
+  },
+  cornerTopLeft: {
     position: "absolute",
+    top: 0,
+    left: 0,
     width: 40,
     height: 40,
-    borderTopWidth: 4,
     borderLeftWidth: 4,
-    borderTopLeftRadius: 8,
+    borderTopWidth: 4,
+    borderTopLeftRadius: 12,
   },
-  topRight: {
+  cornerTopRight: {
+    position: "absolute",
+    top: 0,
     right: 0,
-    borderLeftWidth: 0,
+    width: 40,
+    height: 40,
     borderRightWidth: 4,
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 8,
+    borderTopWidth: 4,
+    borderTopRightRadius: 12,
   },
-  bottomLeft: {
+  cornerBottomLeft: {
+    position: "absolute",
     bottom: 0,
-    borderTopWidth: 0,
+    left: 0,
+    width: 40,
+    height: 40,
+    borderLeftWidth: 4,
     borderBottomWidth: 4,
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 8,
+    borderBottomLeftRadius: 12,
   },
-  bottomRight: {
+  cornerBottomRight: {
+    position: "absolute",
+    bottom: 0,
     right: 0,
-    bottom: 0,
-    borderTopWidth: 0,
-    borderLeftWidth: 0,
+    width: 40,
+    height: 40,
     borderRightWidth: 4,
     borderBottomWidth: 4,
-    borderTopLeftRadius: 0,
-    borderBottomRightRadius: 8,
+    borderBottomRightRadius: 12,
   },
   footer: {
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
     alignItems: "center",
-    gap: Spacing.lg,
+    gap: Spacing.md,
+  },
+  modeIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.full,
   },
   activeTaskBanner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-  },
-  activeTaskText: {
-    color: "#FFFFFF",
-  },
-  flashButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  flashButtonActive: {
-    backgroundColor: "rgba(255,255,255,0.2)",
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
   },
   modalOverlay: {
     flex: 1,
-    justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
   },
   modalContent: {
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
+    borderTopLeftRadius: BorderRadius["2xl"],
+    borderTopRightRadius: BorderRadius["2xl"],
     padding: Spacing.xl,
+    maxHeight: "85%",
+  },
+  modalScrollView: {
+    maxHeight: "100%",
   },
   modalHeader: {
     flexDirection: "row",
@@ -832,13 +837,12 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
   },
   containerCard: {
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   containerHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    marginBottom: Spacing.md,
   },
   divider: {
     height: 1,
@@ -848,11 +852,9 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   infoRow: {
-    flexDirection: "row",
     gap: Spacing.md,
   },
   infoItem: {
-    flex: 1,
     gap: Spacing.xs,
   },
   infoLabelRow: {
@@ -861,53 +863,14 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   containerDetails: {
-    gap: Spacing.md,
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
   },
   detailItem: {
     gap: 2,
   },
-  errorBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.xs,
-    marginBottom: Spacing.lg,
-  },
-  errorText: {
-    flex: 1,
-  },
-  modalActions: {
-    flexDirection: "row",
-    gap: Spacing.md,
-  },
-  cancelButton: {
-    flex: 1,
-  },
-  confirmButton: {
-    flex: 1,
-  },
-  closeButtonFull: {
-    width: "100%",
-  },
-  noTaskText: {
-    flex: 1,
-    textAlign: "center",
-    alignSelf: "center",
-  },
-  successState: {
-    alignItems: "center",
-    paddingVertical: Spacing["3xl"],
-    gap: Spacing.lg,
-  },
-  successText: {
-    textAlign: "center",
-  },
-  modalScrollView: {
-    flex: 1,
-  },
   taskInfoCard: {
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   taskInfoHeader: {
     flexDirection: "row",
@@ -927,29 +890,69 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   targetWarehouseCard: {
-    marginBottom: Spacing.lg,
-    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
   },
   targetWarehouseHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   targetWarehouseIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
   },
   targetWarehouseContent: {
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   targetContainerInfo: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
     marginTop: Spacing.xs,
+  },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  errorText: {
+    flex: 1,
+  },
+  modalActions: {
+    marginTop: Spacing.lg,
+    gap: Spacing.md,
+  },
+  cancelButton: {
+    paddingVertical: Spacing.md,
+  },
+  confirmButton: {
+    paddingVertical: Spacing.lg,
+  },
+  closeButtonFull: {
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.lg,
+  },
+  noTaskText: {
+    textAlign: "center",
+    paddingVertical: Spacing.md,
+  },
+  successContainer: {
+    alignItems: "center",
+    paddingVertical: Spacing["3xl"],
+  },
+  successIcon: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

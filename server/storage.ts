@@ -1,44 +1,67 @@
 import { 
-  users, customerContainers, warehouseContainers, tasks, activityLogs, fillHistory,
+  users, customers, customerContainers, warehouseContainers, tasks, activityLogs, fillHistory, scanEvents,
   type User, type InsertUser, 
-  type CustomerContainer, type WarehouseContainer, 
-  type Task, type ActivityLog, type FillHistory
+  type Customer, type CustomerContainer, type WarehouseContainer, 
+  type Task, type ActivityLog, type FillHistory, type ScanEvent,
+  isValidTaskTransition, getTimestampFieldForStatus
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql, or } from "drizzle-orm";
 
 export interface IStorage {
+  // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   getUsers(): Promise<User[]>;
   updateUser(id: string, data: Partial<User>): Promise<User | undefined>;
 
+  // Customers
+  getCustomers(): Promise<Customer[]>;
+  getCustomer(id: string): Promise<Customer | undefined>;
+  createCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer>;
+  updateCustomer(id: string, data: Partial<Customer>): Promise<Customer | undefined>;
+
+  // Customer Containers
   getCustomerContainers(): Promise<CustomerContainer[]>;
   getCustomerContainer(id: string): Promise<CustomerContainer | undefined>;
   getCustomerContainerByQR(qrCode: string): Promise<CustomerContainer | undefined>;
-  createCustomerContainer(data: Omit<CustomerContainer, 'createdAt'>): Promise<CustomerContainer>;
+  createCustomerContainer(data: Omit<CustomerContainer, 'createdAt' | 'updatedAt'>): Promise<CustomerContainer>;
   updateCustomerContainer(id: string, data: Partial<CustomerContainer>): Promise<CustomerContainer | undefined>;
 
+  // Warehouse Containers
   getWarehouseContainers(): Promise<WarehouseContainer[]>;
   getWarehouseContainer(id: string): Promise<WarehouseContainer | undefined>;
   getWarehouseContainerByQR(qrCode: string): Promise<WarehouseContainer | undefined>;
-  createWarehouseContainer(data: Omit<WarehouseContainer, 'createdAt'>): Promise<WarehouseContainer>;
+  createWarehouseContainer(data: Omit<WarehouseContainer, 'createdAt' | 'updatedAt'>): Promise<WarehouseContainer>;
   updateWarehouseContainer(id: string, data: Partial<WarehouseContainer>): Promise<WarehouseContainer | undefined>;
 
+  // Tasks
   getTasks(filters?: { assignedTo?: string; status?: string; date?: Date }): Promise<Task[]>;
   getTask(id: string): Promise<Task | undefined>;
-  createTask(data: Omit<Task, 'id' | 'createdAt'>): Promise<Task>;
+  createTask(data: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task>;
   updateTask(id: string, data: Partial<Task>): Promise<Task | undefined>;
+  updateTaskStatus(id: string, newStatus: string, userId?: string): Promise<Task | undefined>;
 
-  getActivityLogs(filters?: { userId?: string; containerId?: string; action?: string }): Promise<ActivityLog[]>;
+  // Scan Events
+  getScanEvents(filters?: { containerId?: string; taskId?: string; userId?: string }): Promise<ScanEvent[]>;
+  getScanEvent(id: string): Promise<ScanEvent | undefined>;
+  createScanEvent(data: Omit<ScanEvent, 'id' | 'createdAt'>): Promise<ScanEvent>;
+
+  // Activity Logs
+  getActivityLogs(filters?: { userId?: string; containerId?: string; type?: string; taskId?: string }): Promise<ActivityLog[]>;
   createActivityLog(data: Omit<ActivityLog, 'id' | 'createdAt'>): Promise<ActivityLog>;
 
+  // Fill History
   getFillHistory(warehouseContainerId: string): Promise<FillHistory[]>;
   createFillHistory(data: Omit<FillHistory, 'id' | 'createdAt'>): Promise<FillHistory>;
 }
 
 export class DatabaseStorage implements IStorage {
+  // ============================================================================
+  // USERS
+  // ============================================================================
+  
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
@@ -59,9 +82,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUser(id: string, data: Partial<User>): Promise<User | undefined> {
-    const [user] = await db.update(users).set(data).where(eq(users.id, id)).returning();
+    const updateData = { ...data, updatedAt: new Date() };
+    const [user] = await db.update(users).set(updateData).where(eq(users.id, id)).returning();
     return user || undefined;
   }
+
+  // ============================================================================
+  // CUSTOMERS
+  // ============================================================================
+
+  async getCustomers(): Promise<Customer[]> {
+    return db.select().from(customers).where(eq(customers.isActive, true));
+  }
+
+  async getCustomer(id: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+    return customer || undefined;
+  }
+
+  async createCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<Customer> {
+    const [customer] = await db.insert(customers).values(data).returning();
+    return customer;
+  }
+
+  async updateCustomer(id: string, data: Partial<Customer>): Promise<Customer | undefined> {
+    const updateData = { ...data, updatedAt: new Date() };
+    const [customer] = await db.update(customers).set(updateData).where(eq(customers.id, id)).returning();
+    return customer || undefined;
+  }
+
+  // ============================================================================
+  // CUSTOMER CONTAINERS
+  // ============================================================================
 
   async getCustomerContainers(): Promise<CustomerContainer[]> {
     return db.select().from(customerContainers).where(eq(customerContainers.isActive, true));
@@ -77,15 +129,20 @@ export class DatabaseStorage implements IStorage {
     return container || undefined;
   }
 
-  async createCustomerContainer(data: Omit<CustomerContainer, 'createdAt'>): Promise<CustomerContainer> {
+  async createCustomerContainer(data: Omit<CustomerContainer, 'createdAt' | 'updatedAt'>): Promise<CustomerContainer> {
     const [container] = await db.insert(customerContainers).values(data).returning();
     return container;
   }
 
   async updateCustomerContainer(id: string, data: Partial<CustomerContainer>): Promise<CustomerContainer | undefined> {
-    const [container] = await db.update(customerContainers).set(data).where(eq(customerContainers.id, id)).returning();
+    const updateData = { ...data, updatedAt: new Date() };
+    const [container] = await db.update(customerContainers).set(updateData).where(eq(customerContainers.id, id)).returning();
     return container || undefined;
   }
+
+  // ============================================================================
+  // WAREHOUSE CONTAINERS
+  // ============================================================================
 
   async getWarehouseContainers(): Promise<WarehouseContainer[]> {
     return db.select().from(warehouseContainers).where(eq(warehouseContainers.isActive, true));
@@ -101,18 +158,22 @@ export class DatabaseStorage implements IStorage {
     return container || undefined;
   }
 
-  async createWarehouseContainer(data: Omit<WarehouseContainer, 'createdAt'>): Promise<WarehouseContainer> {
+  async createWarehouseContainer(data: Omit<WarehouseContainer, 'createdAt' | 'updatedAt'>): Promise<WarehouseContainer> {
     const [container] = await db.insert(warehouseContainers).values(data).returning();
     return container;
   }
 
   async updateWarehouseContainer(id: string, data: Partial<WarehouseContainer>): Promise<WarehouseContainer | undefined> {
-    const [container] = await db.update(warehouseContainers).set(data).where(eq(warehouseContainers.id, id)).returning();
+    const updateData = { ...data, updatedAt: new Date() };
+    const [container] = await db.update(warehouseContainers).set(updateData).where(eq(warehouseContainers.id, id)).returning();
     return container || undefined;
   }
 
+  // ============================================================================
+  // TASKS
+  // ============================================================================
+
   async getTasks(filters?: { assignedTo?: string; status?: string; date?: Date }): Promise<Task[]> {
-    let query = db.select().from(tasks);
     const conditions = [];
     
     if (filters?.assignedTo) {
@@ -141,17 +202,90 @@ export class DatabaseStorage implements IStorage {
     return task || undefined;
   }
 
-  async createTask(data: Omit<Task, 'id' | 'createdAt'>): Promise<Task> {
+  async createTask(data: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task> {
     const [task] = await db.insert(tasks).values(data).returning();
     return task;
   }
 
   async updateTask(id: string, data: Partial<Task>): Promise<Task | undefined> {
-    const [task] = await db.update(tasks).set(data).where(eq(tasks.id, id)).returning();
+    const updateData = { ...data, updatedAt: new Date() };
+    const [task] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
     return task || undefined;
   }
 
-  async getActivityLogs(filters?: { userId?: string; containerId?: string; action?: string }): Promise<ActivityLog[]> {
+  /**
+   * Update task status with validation and automatic timestamp setting
+   * Returns undefined if transition is invalid
+   */
+  async updateTaskStatus(id: string, newStatus: string, userId?: string): Promise<Task | undefined> {
+    const currentTask = await this.getTask(id);
+    if (!currentTask) return undefined;
+
+    // Validate status transition
+    if (!isValidTaskTransition(currentTask.status, newStatus)) {
+      console.warn(`Invalid task transition: ${currentTask.status} -> ${newStatus}`);
+      return undefined;
+    }
+
+    // Build update data with appropriate timestamp
+    const updateData: Partial<Task> = {
+      status: newStatus,
+      updatedAt: new Date(),
+    };
+
+    // Set the appropriate timestamp for this status
+    const timestampField = getTimestampFieldForStatus(newStatus);
+    if (timestampField) {
+      (updateData as any)[timestampField] = new Date();
+    }
+
+    // If assigning, also set assignedTo if provided
+    if (newStatus === 'ASSIGNED' && userId) {
+      updateData.assignedTo = userId;
+    }
+
+    const [task] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
+    return task || undefined;
+  }
+
+  // ============================================================================
+  // SCAN EVENTS
+  // ============================================================================
+
+  async getScanEvents(filters?: { containerId?: string; taskId?: string; userId?: string }): Promise<ScanEvent[]> {
+    const conditions = [];
+    
+    if (filters?.containerId) {
+      conditions.push(eq(scanEvents.containerId, filters.containerId));
+    }
+    if (filters?.taskId) {
+      conditions.push(eq(scanEvents.taskId, filters.taskId));
+    }
+    if (filters?.userId) {
+      conditions.push(eq(scanEvents.scannedByUserId, filters.userId));
+    }
+
+    if (conditions.length > 0) {
+      return db.select().from(scanEvents).where(and(...conditions)).orderBy(desc(scanEvents.scannedAt));
+    }
+    return db.select().from(scanEvents).orderBy(desc(scanEvents.scannedAt));
+  }
+
+  async getScanEvent(id: string): Promise<ScanEvent | undefined> {
+    const [event] = await db.select().from(scanEvents).where(eq(scanEvents.id, id));
+    return event || undefined;
+  }
+
+  async createScanEvent(data: Omit<ScanEvent, 'id' | 'createdAt'>): Promise<ScanEvent> {
+    const [event] = await db.insert(scanEvents).values(data).returning();
+    return event;
+  }
+
+  // ============================================================================
+  // ACTIVITY LOGS
+  // ============================================================================
+
+  async getActivityLogs(filters?: { userId?: string; containerId?: string; type?: string; taskId?: string }): Promise<ActivityLog[]> {
     const conditions = [];
     
     if (filters?.userId) {
@@ -160,20 +294,27 @@ export class DatabaseStorage implements IStorage {
     if (filters?.containerId) {
       conditions.push(eq(activityLogs.containerId, filters.containerId));
     }
-    if (filters?.action) {
-      conditions.push(eq(activityLogs.action, filters.action));
+    if (filters?.type) {
+      conditions.push(eq(activityLogs.type, filters.type));
+    }
+    if (filters?.taskId) {
+      conditions.push(eq(activityLogs.taskId, filters.taskId));
     }
 
     if (conditions.length > 0) {
-      return db.select().from(activityLogs).where(and(...conditions)).orderBy(desc(activityLogs.createdAt));
+      return db.select().from(activityLogs).where(and(...conditions)).orderBy(desc(activityLogs.timestamp));
     }
-    return db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt));
+    return db.select().from(activityLogs).orderBy(desc(activityLogs.timestamp));
   }
 
   async createActivityLog(data: Omit<ActivityLog, 'id' | 'createdAt'>): Promise<ActivityLog> {
     const [log] = await db.insert(activityLogs).values(data).returning();
     return log;
   }
+
+  // ============================================================================
+  // FILL HISTORY
+  // ============================================================================
 
   async getFillHistory(warehouseContainerId: string): Promise<FillHistory[]> {
     return db.select().from(fillHistory)
