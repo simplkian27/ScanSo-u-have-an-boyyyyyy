@@ -400,6 +400,7 @@ export const activityLogs = pgTable("activity_logs", {
   
   // Event classification
   type: text("type").notNull(), // TASK_CREATED, TASK_ACCEPTED, CONTAINER_SCANNED_AT_WAREHOUSE, etc.
+  action: text("action").notNull(), // Legacy field, same as type for backward compatibility
   
   // Human-readable message for UI display
   message: text("message").notNull(), // e.g., "Fahrer Müller hat Container XYZ beim Kunden gescannt"

@@ -308,7 +308,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createActivityLog(data: Omit<ActivityLog, 'id' | 'createdAt'>): Promise<ActivityLog> {
-    const [log] = await db.insert(activityLogs).values(data).returning();
+    // Ensure action is set (legacy field, same as type for backward compatibility)
+    const logData = {
+      ...data,
+      action: data.action || data.type,
+    };
+    const [log] = await db.insert(activityLogs).values(logData).returning();
     return log;
   }
 
