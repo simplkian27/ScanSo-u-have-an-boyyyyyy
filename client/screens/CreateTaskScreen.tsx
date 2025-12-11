@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Pressable, ActivityIndicator, ScrollView } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -11,10 +11,12 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { TextInput } from "@/components/TextInput";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/contexts/AuthContext";
-import { CustomerContainer, User } from "@shared/schema";
+import { useTheme } from "@/hooks/useTheme";
+import { CustomerContainer, User, WarehouseContainer } from "@shared/schema";
+import { ProgressBar } from "@/components/ProgressBar";
 
 type UserWithoutPassword = Omit<User, "password">;
 
@@ -24,14 +26,20 @@ export default function CreateTaskScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { theme } = useTheme();
 
   const [selectedContainer, setSelectedContainer] = useState<string>("");
   const [selectedDriver, setSelectedDriver] = useState<string>("");
+  const [selectedWarehouseContainer, setSelectedWarehouseContainer] = useState<string>("");
   const [estimatedAmount, setEstimatedAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [priority, setPriority] = useState<"normal" | "high" | "urgent">("normal");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setSelectedWarehouseContainer("");
+  }, [selectedContainer]);
 
   const { data: containers = [] } = useQuery<CustomerContainer[]>({
     queryKey: ["/api/containers/customer"],
@@ -41,8 +49,16 @@ export default function CreateTaskScreen() {
     queryKey: ["/api/users"],
   });
 
+  const { data: warehouseContainers = [] } = useQuery<WarehouseContainer[]>({
+    queryKey: ["/api/containers/warehouse"],
+  });
+
   const drivers = users.filter((u) => u.role === "driver" && u.isActive);
   const selectedContainerData = containers.find((c) => c.id === selectedContainer);
+  
+  const filteredWarehouseContainers = warehouseContainers.filter(
+    (wc) => wc.isActive && selectedContainerData && wc.materialType === selectedContainerData.materialType
+  );
 
   const handleSubmit = async () => {
     if (!selectedContainer || !selectedDriver) {
@@ -64,6 +80,7 @@ export default function CreateTaskScreen() {
         createdBy: user?.id,
         scheduledTime: new Date().toISOString(),
         status: "open",
+        deliveryContainerID: selectedWarehouseContainer || null,
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -97,34 +114,35 @@ export default function CreateTaskScreen() {
                 key={container.id}
                 style={[
                   styles.containerOption,
-                  selectedContainer === container.id && styles.containerSelected,
+                  { backgroundColor: theme.backgroundSecondary },
+                  selectedContainer === container.id && [styles.containerSelected, { backgroundColor: `${theme.accent}20`, borderColor: theme.accent }],
                 ]}
                 onPress={() => setSelectedContainer(container.id)}
               >
                 <Feather
                   name="package"
                   size={24}
-                  color={selectedContainer === container.id ? Colors.light.accent : Colors.light.textSecondary}
+                  color={selectedContainer === container.id ? theme.accent : theme.textSecondary}
                 />
                 <ThemedText
                   type="body"
                   style={[
                     styles.containerOptionText,
-                    selectedContainer === container.id && styles.containerSelectedText,
+                    selectedContainer === container.id && { color: theme.accent },
                   ]}
                 >
                   {container.id}
                 </ThemedText>
-                <ThemedText type="small" style={styles.containerLocation}>
+                <ThemedText type="small" style={{ color: theme.textSecondary, fontSize: 11 }}>
                   {container.customerName}
                 </ThemedText>
               </Pressable>
             ))}
           </ScrollView>
           {selectedContainerData ? (
-            <View style={styles.selectedInfo}>
-              <Feather name="info" size={16} color={Colors.light.textSecondary} />
-              <ThemedText type="small" style={styles.selectedInfoText}>
+            <View style={[styles.selectedInfo, { backgroundColor: theme.backgroundSecondary }]}>
+              <Feather name="info" size={16} color={theme.textSecondary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
                 {selectedContainerData.location} - {selectedContainerData.materialType}
               </ThemedText>
             </View>
@@ -141,14 +159,16 @@ export default function CreateTaskScreen() {
                 key={driver.id}
                 style={[
                   styles.driverOption,
-                  selectedDriver === driver.id && styles.driverSelected,
+                  { backgroundColor: theme.backgroundSecondary },
+                  selectedDriver === driver.id && { backgroundColor: `${theme.accent}20`, borderWidth: 2, borderColor: theme.accent },
                 ]}
                 onPress={() => setSelectedDriver(driver.id)}
               >
                 <View
                   style={[
                     styles.driverAvatar,
-                    selectedDriver === driver.id && styles.driverAvatarSelected,
+                    { backgroundColor: theme.primary },
+                    selectedDriver === driver.id && { backgroundColor: theme.accent },
                   ]}
                 >
                   <ThemedText type="small" style={styles.driverInitials}>
@@ -157,21 +177,111 @@ export default function CreateTaskScreen() {
                 </View>
                 <ThemedText
                   type="body"
-                  style={selectedDriver === driver.id ? styles.driverSelectedText : undefined}
+                  style={selectedDriver === driver.id ? { color: theme.accent, fontWeight: "600" } : undefined}
                 >
                   {driver.name}
                 </ThemedText>
                 {selectedDriver === driver.id ? (
-                  <Feather name="check" size={20} color={Colors.light.accent} />
+                  <Feather name="check" size={20} color={theme.accent} />
                 ) : null}
               </Pressable>
             ))}
           </View>
           {drivers.length === 0 ? (
-            <ThemedText type="small" style={styles.noDrivers}>
+            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", padding: Spacing.lg }}>
               Keine aktiven Fahrer verfügbar
             </ThemedText>
           ) : null}
+        </Card>
+
+        <Card style={styles.section}>
+          <ThemedText type="h4" style={styles.sectionTitle}>
+            Ziel-Container im Lager
+          </ThemedText>
+          <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}>
+            Wählen Sie einen Lagercontainer für die Materiallieferung (optional)
+          </ThemedText>
+          {selectedContainerData ? (
+            filteredWarehouseContainers.length > 0 ? (
+              <View style={styles.warehouseList}>
+                {filteredWarehouseContainers.map((wc) => {
+                  const availableCapacity = wc.maxCapacity - wc.currentAmount;
+                  const fillPercentage = Math.round((wc.currentAmount / wc.maxCapacity) * 100);
+                  const isSelected = selectedWarehouseContainer === wc.id;
+                  
+                  return (
+                    <Pressable
+                      key={wc.id}
+                      style={[
+                        styles.warehouseOption,
+                        { backgroundColor: theme.backgroundSecondary },
+                        isSelected && { backgroundColor: `${theme.accent}20`, borderWidth: 2, borderColor: theme.accent },
+                      ]}
+                      onPress={() => setSelectedWarehouseContainer(isSelected ? "" : wc.id)}
+                    >
+                      <View style={styles.warehouseHeader}>
+                        <View style={styles.warehouseIdRow}>
+                          <Feather
+                            name="inbox"
+                            size={20}
+                            color={isSelected ? theme.accent : theme.textSecondary}
+                          />
+                          <ThemedText
+                            type="body"
+                            style={[
+                              styles.warehouseId,
+                              isSelected && { color: theme.accent },
+                            ]}
+                          >
+                            {wc.id}
+                          </ThemedText>
+                          {isSelected ? (
+                            <Feather name="check-circle" size={20} color={theme.accent} />
+                          ) : null}
+                        </View>
+                        <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: 28, marginTop: Spacing.xs }}>
+                          {wc.location}
+                        </ThemedText>
+                      </View>
+                      <View style={[styles.warehouseCapacity, { borderTopColor: theme.borderLight }]}>
+                        <View style={styles.capacityRow}>
+                          <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                            Verfügbar:
+                          </ThemedText>
+                          <ThemedText type="small" style={{ fontWeight: "600", color: theme.success }}>
+                            {availableCapacity.toFixed(0)} kg
+                          </ThemedText>
+                        </View>
+                        <View style={styles.progressContainer}>
+                          <ProgressBar 
+                            progress={fillPercentage} 
+                            showFillColor={true}
+                          />
+                        </View>
+                        <ThemedText type="caption" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.xs }}>
+                          {fillPercentage}% belegt ({wc.currentAmount.toFixed(0)} / {wc.maxCapacity.toFixed(0)} kg)
+                        </ThemedText>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={[styles.noWarehouseContainer, { backgroundColor: theme.backgroundSecondary }]}>
+                <Feather name="alert-circle" size={20} color={theme.textSecondary} />
+                <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
+                  Keine passenden Lagercontainer für {selectedContainerData.materialType} verfügbar
+                </ThemedText>
+              </View>
+            )
+          ) : (
+            <View style={[styles.noWarehouseContainer, { backgroundColor: theme.backgroundSecondary }]}>
+              <Feather name="info" size={20} color={theme.textSecondary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
+                Bitte wählen Sie zuerst einen Kundencontainer aus
+              </ThemedText>
+            </View>
+          )}
         </Card>
 
         <Card style={styles.section}>
@@ -188,24 +298,25 @@ export default function CreateTaskScreen() {
           />
 
           <View style={styles.prioritySection}>
-            <ThemedText type="small" style={styles.label}>Priorität</ThemedText>
+            <ThemedText type="small" style={{ fontWeight: "500", marginBottom: Spacing.xs }}>Priorität</ThemedText>
             <View style={styles.priorityOptions}>
               {(["normal", "high", "urgent"] as const).map((p) => (
                 <Pressable
                   key={p}
                   style={[
                     styles.priorityOption,
-                    priority === p && styles.prioritySelected,
-                    priority === p && p === "urgent" && styles.priorityUrgent,
-                    priority === p && p === "high" && styles.priorityHigh,
+                    { backgroundColor: theme.backgroundSecondary },
+                    priority === p && { backgroundColor: `${theme.accent}20`, borderColor: theme.accent },
+                    priority === p && p === "urgent" && { backgroundColor: `${theme.error}20`, borderColor: theme.error },
+                    priority === p && p === "high" && { backgroundColor: `${theme.warning}20`, borderColor: theme.warning },
                   ]}
                   onPress={() => setPriority(p)}
                 >
                   <ThemedText
                     type="small"
                     style={[
-                      styles.priorityText,
-                      priority === p && styles.prioritySelectedText,
+                      { color: theme.textSecondary },
+                      priority === p && { fontWeight: "600" },
                     ]}
                   >
                     {p === "normal" ? "Normal" : p === "high" ? "Hoch" : "Dringend"}
@@ -227,16 +338,16 @@ export default function CreateTaskScreen() {
         </Card>
 
         {error ? (
-          <View style={styles.errorBanner}>
-            <Feather name="alert-circle" size={16} color={Colors.light.error} />
-            <ThemedText type="small" style={styles.errorText}>
+          <View style={[styles.errorBanner, { backgroundColor: theme.errorLight }]}>
+            <Feather name="alert-circle" size={16} color={theme.error} />
+            <ThemedText type="small" style={{ color: theme.error, flex: 1 }}>
               {error}
             </ThemedText>
           </View>
         ) : null}
 
         <Button
-          style={styles.submitButton}
+          style={[styles.submitButton, { backgroundColor: theme.accent }]}
           onPress={handleSubmit}
           disabled={isSubmitting || !selectedContainer || !selectedDriver}
         >
@@ -259,14 +370,12 @@ export default function CreateTaskScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
   },
   content: {
     padding: Spacing.lg,
     gap: Spacing.md,
   },
   section: {
-    backgroundColor: Colors.light.backgroundDefault,
     gap: Spacing.md,
   },
   sectionTitle: {
@@ -281,36 +390,21 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     marginRight: Spacing.md,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.light.backgroundSecondary,
     minWidth: 100,
   },
   containerSelected: {
-    backgroundColor: `${Colors.light.accent}20`,
     borderWidth: 2,
-    borderColor: Colors.light.accent,
   },
   containerOptionText: {
     marginTop: Spacing.xs,
     fontWeight: "600",
   },
-  containerSelectedText: {
-    color: Colors.light.accent,
-  },
-  containerLocation: {
-    color: Colors.light.textSecondary,
-    fontSize: 11,
-  },
   selectedInfo: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Colors.light.backgroundSecondary,
     padding: Spacing.sm,
     borderRadius: BorderRadius.xs,
-  },
-  selectedInfoText: {
-    color: Colors.light.textSecondary,
-    flex: 1,
   },
   driverList: {
     gap: Spacing.sm,
@@ -321,41 +415,17 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.light.backgroundSecondary,
-  },
-  driverSelected: {
-    backgroundColor: `${Colors.light.accent}20`,
-    borderWidth: 2,
-    borderColor: Colors.light.accent,
   },
   driverAvatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.light.primary,
     justifyContent: "center",
     alignItems: "center",
-  },
-  driverAvatarSelected: {
-    backgroundColor: Colors.light.accent,
   },
   driverInitials: {
     color: "#FFFFFF",
     fontWeight: "600",
-  },
-  driverSelectedText: {
-    color: Colors.light.accent,
-    fontWeight: "600",
-  },
-  noDrivers: {
-    color: Colors.light.textSecondary,
-    textAlign: "center",
-    padding: Spacing.lg,
-  },
-  label: {
-    fontWeight: "500",
-    color: Colors.light.text,
-    marginBottom: Spacing.xs,
   },
   prioritySection: {
     marginTop: Spacing.sm,
@@ -369,29 +439,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.xs,
-    backgroundColor: Colors.light.backgroundSecondary,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "transparent",
-  },
-  prioritySelected: {
-    backgroundColor: `${Colors.light.accent}20`,
-    borderColor: Colors.light.accent,
-  },
-  priorityHigh: {
-    backgroundColor: `${Colors.light.warning}20`,
-    borderColor: Colors.light.warning,
-  },
-  priorityUrgent: {
-    backgroundColor: `${Colors.light.error}20`,
-    borderColor: Colors.light.error,
-  },
-  priorityText: {
-    color: Colors.light.textSecondary,
-  },
-  prioritySelectedText: {
-    color: Colors.light.text,
-    fontWeight: "600",
   },
   notesInput: {
     height: 80,
@@ -401,16 +451,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: "#FFEBEE",
     padding: Spacing.md,
     borderRadius: BorderRadius.xs,
   },
-  errorText: {
-    color: Colors.light.error,
-    flex: 1,
-  },
   submitButton: {
-    backgroundColor: Colors.light.accent,
     marginTop: Spacing.md,
   },
   submitContent: {
@@ -421,5 +465,47 @@ const styles = StyleSheet.create({
   submitText: {
     color: "#FFFFFF",
     fontWeight: "600",
+  },
+  warehouseList: {
+    gap: Spacing.sm,
+  },
+  warehouseOption: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  warehouseHeader: {
+    marginBottom: Spacing.sm,
+  },
+  warehouseIdRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  warehouseId: {
+    fontWeight: "600",
+    flex: 1,
+  },
+  warehouseCapacity: {
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+  },
+  capacityRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
+  progressContainer: {
+    marginVertical: Spacing.xs,
+  },
+  noWarehouseContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.xs,
   },
 });

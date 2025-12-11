@@ -442,6 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         action: "cancelled",
         taskId: task.id,
         containerId: task.containerID,
+        location: null,
         details: `Task cancelled: ${reason}`,
       });
 

@@ -8,28 +8,28 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { FilterChip } from "@/components/FilterChip";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
+import { useTheme } from "@/hooks/useTheme";
 import { ActivityLog, User } from "@shared/schema";
 import { getApiUrl } from "@/lib/query-client";
-import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
 
 type UserWithoutPassword = Omit<User, "password">;
 type ActionFilter = "all" | "pickup" | "delivery" | "cancelled";
 
-const actionConfig: Record<string, { icon: keyof typeof Feather.glyphMap; color: string; label: string }> = {
-  pickup: { icon: "log-in", color: Colors.light.statusInProgress, label: "Abholung" },
-  delivery: { icon: "log-out", color: Colors.light.statusCompleted, label: "Lieferung" },
-  cancelled: { icon: "x-circle", color: Colors.light.statusCancelled, label: "Storniert" },
-  manual_edit: { icon: "edit", color: Colors.light.primary, label: "Bearbeitet" },
-  emptied: { icon: "refresh-ccw", color: Colors.light.fillLow, label: "Geleert" },
-};
-
 export default function ActivityLogScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
+  const { theme } = useTheme();
   const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
   const [isExporting, setIsExporting] = useState(false);
+
+  const actionConfig: Record<string, { icon: keyof typeof Feather.glyphMap; color: string; label: string }> = {
+    pickup: { icon: "log-in", color: theme.statusInProgress, label: "Abholung" },
+    delivery: { icon: "log-out", color: theme.statusCompleted, label: "Lieferung" },
+    cancelled: { icon: "x-circle", color: theme.statusCancelled, label: "Storniert" },
+    manual_edit: { icon: "edit", color: theme.primary, label: "Bearbeitet" },
+    emptied: { icon: "refresh-ccw", color: theme.fillLow, label: "Geleert" },
+  };
 
   const { data: logs = [], isLoading, refetch, isRefetching } = useQuery<ActivityLog[]>({
     queryKey: ["/api/activity-logs"],
@@ -45,6 +45,11 @@ export default function ActivityLogScreen() {
   };
 
   const handleExportCSV = async () => {
+    if (Platform.OS !== "web") {
+      Alert.alert("Export", "CSV-Export ist nur in der Webversion verfügbar.");
+      return;
+    }
+
     if (logs.length === 0) {
       Alert.alert("Keine Daten", "Es gibt keine Aktivitätsprotokolle zum Exportieren.");
       return;
@@ -55,31 +60,7 @@ export default function ActivityLogScreen() {
       const filterParam = actionFilter !== "all" ? `?action=${actionFilter}` : "";
       const exportUrl = `${getApiUrl()}/api/activity-logs/export/csv${filterParam}`;
       
-      if (Platform.OS === "web") {
-        await Linking.openURL(exportUrl);
-        setIsExporting(false);
-        return;
-      }
-
-      const fileName = `activity-log-${new Date().toISOString().split("T")[0]}.csv`;
-      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-      
-      const downloadResult = await FileSystem.downloadAsync(exportUrl, fileUri);
-      
-      if (downloadResult.status === 200) {
-        const isSharingAvailable = await Sharing.isAvailableAsync();
-        if (isSharingAvailable) {
-          await Sharing.shareAsync(downloadResult.uri, {
-            mimeType: "text/csv",
-            dialogTitle: "Export Activity Log",
-            UTI: "public.comma-separated-values-text",
-          });
-        } else {
-          Alert.alert("Export abgeschlossen", `Datei gespeichert unter ${fileName}`);
-        }
-      } else {
-        throw new Error("Download failed");
-      }
+      await Linking.openURL(exportUrl);
     } catch (error) {
       console.error("Export error:", error);
       Alert.alert("Export fehlgeschlagen", "Aktivitätsprotokolle konnten nicht exportiert werden. Bitte erneut versuchen.");
@@ -115,7 +96,7 @@ export default function ActivityLogScreen() {
   };
 
   const renderLog = ({ item }: { item: ActivityLog }) => {
-    const config = actionConfig[item.action] || { icon: "activity", color: Colors.light.textSecondary, label: item.action };
+    const config = actionConfig[item.action] || { icon: "activity", color: theme.textSecondary, label: item.action };
 
     return (
       <Card style={styles.logCard}>
@@ -128,22 +109,22 @@ export default function ActivityLogScreen() {
               <ThemedText type="body" style={styles.logTitle}>
                 {config.label}
               </ThemedText>
-              <ThemedText type="small" style={styles.logTime}>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
                 {formatDate(item.createdAt)}
               </ThemedText>
             </View>
-            <ThemedText type="small" style={styles.logUser}>
+            <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 2 }}>
               {getUserName(item.userId)}
             </ThemedText>
             {item.details ? (
-              <ThemedText type="small" style={styles.logDetails}>
+              <ThemedText type="small" style={{ marginTop: Spacing.xs }}>
                 {item.details}
               </ThemedText>
             ) : null}
             {item.containerId ? (
               <View style={styles.logMeta}>
-                <Feather name="package" size={12} color={Colors.light.textSecondary} />
-                <ThemedText type="small" style={styles.logMetaText}>
+                <Feather name="package" size={12} color={theme.textSecondary} />
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
                   {item.containerId}
                 </ThemedText>
               </View>
@@ -156,11 +137,11 @@ export default function ActivityLogScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Feather name="activity" size={48} color={Colors.light.textSecondary} />
-      <ThemedText type="h4" style={styles.emptyTitle}>
+      <Feather name="activity" size={48} color={theme.textSecondary} />
+      <ThemedText type="h4">
         Noch keine Aktivität
       </ThemedText>
-      <ThemedText type="body" style={styles.emptySubtitle}>
+      <ThemedText type="body" style={{ color: theme.textSecondary }}>
         Aktivitätsprotokolle werden hier angezeigt
       </ThemedText>
     </View>
@@ -168,7 +149,7 @@ export default function ActivityLogScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={[styles.filterContainer, { marginTop: headerHeight }]}>
+      <View style={[styles.filterContainer, { marginTop: headerHeight, backgroundColor: theme.backgroundDefault }]}>
         <View style={styles.filterRow}>
           <FilterChip
             label="Alle"
@@ -180,35 +161,35 @@ export default function ActivityLogScreen() {
             label="Abholungen"
             selected={actionFilter === "pickup"}
             onPress={() => setActionFilter("pickup")}
-            color={Colors.light.statusInProgress}
+            color={theme.statusInProgress}
             small
           />
           <FilterChip
             label="Lieferungen"
             selected={actionFilter === "delivery"}
             onPress={() => setActionFilter("delivery")}
-            color={Colors.light.statusCompleted}
+            color={theme.statusCompleted}
             small
           />
           <FilterChip
             label="Storniert"
             selected={actionFilter === "cancelled"}
             onPress={() => setActionFilter("cancelled")}
-            color={Colors.light.statusCancelled}
+            color={theme.statusCancelled}
             small
           />
         </View>
         <Pressable
-          style={styles.exportButton}
+          style={[styles.exportButton, { backgroundColor: `${theme.accent}15` }]}
           onPress={handleExportCSV}
           disabled={isExporting || logs.length === 0}
         >
           {isExporting ? (
-            <ActivityIndicator size="small" color={Colors.light.accent} />
+            <ActivityIndicator size="small" color={theme.accent} />
           ) : (
-            <Feather name="download" size={16} color={Colors.light.accent} />
+            <Feather name="download" size={16} color={theme.accent} />
           )}
-          <ThemedText type="small" style={styles.exportButtonText}>
+          <ThemedText type="small" style={{ color: theme.accent, fontWeight: "600" }}>
             CSV exportieren
           </ThemedText>
         </Pressable>
@@ -216,7 +197,7 @@ export default function ActivityLogScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.light.accent} />
+          <ActivityIndicator size="large" color={theme.accent} />
         </View>
       ) : (
         <FlatList
@@ -232,7 +213,7 @@ export default function ActivityLogScreen() {
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={refetch}
-              tintColor={Colors.light.accent}
+              tintColor={theme.accent}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -245,13 +226,11 @@ export default function ActivityLogScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundRoot,
   },
   filterContainer: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     gap: Spacing.sm,
-    backgroundColor: Colors.light.backgroundDefault,
   },
   filterRow: {
     flexDirection: "row",
@@ -263,16 +242,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.xs,
-    backgroundColor: `${Colors.light.accent}15`,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
     marginTop: Spacing.sm,
     alignSelf: "flex-start",
-  },
-  exportButtonText: {
-    color: Colors.light.accent,
-    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,
@@ -284,7 +258,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   logCard: {
-    backgroundColor: Colors.light.backgroundDefault,
     padding: Spacing.md,
   },
   logHeader: {
@@ -309,25 +282,11 @@ const styles = StyleSheet.create({
   logTitle: {
     fontWeight: "600",
   },
-  logTime: {
-    color: Colors.light.textSecondary,
-  },
-  logUser: {
-    color: Colors.light.textSecondary,
-    marginTop: 2,
-  },
-  logDetails: {
-    color: Colors.light.text,
-    marginTop: Spacing.xs,
-  },
   logMeta: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
     marginTop: Spacing.xs,
-  },
-  logMetaText: {
-    color: Colors.light.textSecondary,
   },
   emptyState: {
     flex: 1,
@@ -335,11 +294,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing["5xl"],
     gap: Spacing.md,
-  },
-  emptyTitle: {
-    color: Colors.light.text,
-  },
-  emptySubtitle: {
-    color: Colors.light.textSecondary,
   },
 });
