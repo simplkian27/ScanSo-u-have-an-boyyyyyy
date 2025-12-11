@@ -266,7 +266,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/containers/customer/qr/:qrCode", async (req, res) => {
     try {
-      const container = await storage.getCustomerContainerByQR(req.params.qrCode);
+      // First try by QR code, then by container ID
+      let container = await storage.getCustomerContainerByQR(req.params.qrCode);
+      if (!container) {
+        container = await storage.getCustomerContainer(req.params.qrCode);
+      }
       if (!container) {
         return res.status(404).json({ error: "Container not found" });
       }
@@ -324,7 +328,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/containers/warehouse/qr/:qrCode", async (req, res) => {
     try {
-      const container = await storage.getWarehouseContainerByQR(req.params.qrCode);
+      // First try by QR code, then by container ID
+      let container = await storage.getWarehouseContainerByQR(req.params.qrCode);
+      if (!container) {
+        container = await storage.getWarehouseContainer(req.params.qrCode);
+      }
       if (!container) {
         return res.status(404).json({ error: "Container not found" });
       }
@@ -351,7 +359,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(container);
     } catch (error) {
-      res.status(500).json({ error: "Failed to update container" });
+      console.error("Error updating warehouse container:", error);
+      res.status(500).json({ error: "Failed to update container", details: String(error) });
+    }
+  });
+
+  // Reset warehouse container - sets current amount to 0
+  app.post("/api/containers/warehouse/:id/reset", async (req, res) => {
+    try {
+      const { userId, reason } = req.body;
+      const existingContainer = await storage.getWarehouseContainer(req.params.id);
+      if (!existingContainer) {
+        return res.status(404).json({ error: "Container not found" });
+      }
+
+      const previousAmount = existingContainer.currentAmount;
+      const container = await storage.updateWarehouseContainer(req.params.id, {
+        currentAmount: 0,
+      });
+
+      if (!container) {
+        return res.status(500).json({ error: "Failed to reset container" });
+      }
+
+      await storage.createActivityLog({
+        type: "CONTAINER_STATUS_CHANGED",
+        message: `Container ${req.params.id} wurde geleert (${previousAmount} ${existingContainer.quantityUnit} entfernt)`,
+        userId: userId || null,
+        taskId: null,
+        containerId: req.params.id,
+        scanEventId: null,
+        location: null,
+        timestamp: new Date(),
+        details: reason || null,
+        metadata: { previousAmount, reason },
+      });
+
+      res.json(container);
+    } catch (error) {
+      console.error("Error resetting warehouse container:", error);
+      res.status(500).json({ error: "Failed to reset container" });
     }
   });
 
