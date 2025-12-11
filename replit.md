@@ -79,8 +79,28 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Database
-- **PostgreSQL**: Primary data store, connection via `DATABASE_URL` environment variable
+- **PostgreSQL**: Primary data store via Supabase or Replit built-in PostgreSQL
+- **Drizzle ORM**: Type-safe database access with schema in `shared/schema.ts`
 - **Drizzle Kit**: Database migrations stored in `migrations/` directory
+
+### Supabase Configuration (Optional)
+The app supports Supabase as a PostgreSQL database provider. To use Supabase:
+
+1. **Create a Supabase project** at https://supabase.com
+2. **Get your connection string** from Supabase Dashboard → Settings → Database → Connection String (use "URI" format)
+3. **Set the DATABASE_URL secret** to your Supabase connection string
+4. **Run the bootstrap script** in Supabase SQL Editor: `supabase-bootstrap.sql` (creates required extensions and enums)
+5. **Push the schema**: `npm run db:push` to create tables in Supabase
+
+**Connection String Format** (from Supabase Dashboard):
+```
+postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
+```
+
+**Important Notes**:
+- The Expo app NEVER connects directly to Supabase - all database access goes through the Express API
+- QR codes remain stable in the database and are never regenerated automatically
+- The backend uses Drizzle ORM with standard pg driver - no Supabase JS client
 
 ### Mobile Platform Services
 - **Expo**: Build and development toolchain for React Native
@@ -90,9 +110,13 @@ Preferred communication style: Simple, everyday language.
 
 ### Runtime Environment
 - **Environment Variables Required**:
-  - `DATABASE_URL` - PostgreSQL connection string
+  - `DATABASE_URL` - PostgreSQL connection string (Supabase or Replit)
   - `EXPO_PUBLIC_DOMAIN` - Public API domain for mobile app to connect to backend
   - `REPLIT_DEV_DOMAIN` / `REPLIT_INTERNAL_APP_DOMAIN` - Replit-specific domain configuration
+- **Optional Environment Variables** (alternative to DATABASE_URL for Supabase):
+  - `SUPABASE_URL` - Supabase project URL (https://[project-ref].supabase.co)
+  - `DB_PASSWORD` - Supabase database password
+  - `SUPABASE_SERVICE_ROLE_KEY` - Service role key (for admin operations if needed)
 
 ### Development Tools
 - TypeScript with strict mode
