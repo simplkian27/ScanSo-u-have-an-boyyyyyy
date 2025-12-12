@@ -178,13 +178,20 @@ export default function ContainerDetailScreen() {
   const handleMarkAsEmpty = async () => {
     if (!container || type !== "warehouse") return;
     
+    const warehouseData = container as WarehouseContainer;
+    if (warehouseData.currentAmount === 0) {
+      showToast("Container ist bereits leer", "info");
+      return;
+    }
+    
     Alert.alert(
       "Container leeren",
-      `Möchtest du den Füllstand von ${containerId} wirklich auf Null setzen?`,
+      `Möchtest du den Füllstand von ${containerId} (${warehouseData.currentAmount.toFixed(0)} ${warehouseData.quantityUnit}) wirklich auf Null setzen?`,
       [
         { text: "Abbrechen", style: "cancel" },
         {
           text: "Ja, leeren",
+          style: "destructive",
           onPress: async () => {
             setIsEmptying(true);
             emptyButtonScale.value = withSequence(
@@ -193,12 +200,12 @@ export default function ContainerDetailScreen() {
             );
             try {
               await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              await apiRequest("PATCH", `/api/containers/warehouse/${containerId}`, {
-                currentAmount: 0,
-                lastEmptied: new Date().toISOString(),
+              await apiRequest("POST", `/api/containers/warehouse/${containerId}/reset`, {
+                reason: "Container über Detailansicht geleert",
               });
               queryClient.invalidateQueries({ queryKey: [`/api/containers/${type}/${containerId}`] });
               queryClient.invalidateQueries({ queryKey: ["/api/containers/warehouse"] });
+              queryClient.invalidateQueries({ queryKey: [`/api/containers/warehouse/${containerId}/history`] });
               showToast(`Container ${containerId} wurde erfolgreich geleert`, "success");
             } catch (err) {
               console.error("Failed to mark container as empty:", err);
@@ -367,22 +374,20 @@ export default function ContainerDetailScreen() {
               </View>
             ) : null}
 
-            {isAdmin ? (
-              <Animated.View style={emptyButtonAnimatedStyle}>
-                <Button
-                  onPress={handleMarkAsEmpty}
-                  disabled={isEmptying || warehouseContainer.currentAmount === 0}
-                  style={styles.markEmptyButton}
-                >
-                  <View style={styles.markEmptyContent}>
-                    <Feather name="refresh-ccw" size={18} color={theme.buttonText} />
-                    <ThemedText type="body" style={[styles.markEmptyText, { color: theme.buttonText }]}>
-                      {isEmptying ? "Wird geleert..." : "Container leeren"}
-                    </ThemedText>
-                  </View>
-                </Button>
-              </Animated.View>
-            ) : null}
+            <Animated.View style={emptyButtonAnimatedStyle}>
+              <Button
+                onPress={handleMarkAsEmpty}
+                disabled={isEmptying || warehouseContainer.currentAmount === 0}
+                style={styles.markEmptyButton}
+              >
+                <View style={styles.markEmptyContent}>
+                  <Feather name="refresh-ccw" size={18} color={theme.buttonText} />
+                  <ThemedText type="body" style={[styles.markEmptyText, { color: theme.buttonText }]}>
+                    {isEmptying ? "Wird geleert..." : warehouseContainer.currentAmount === 0 ? "Container ist leer" : "Container leeren"}
+                  </ThemedText>
+                </View>
+              </Button>
+            </Animated.View>
           </GlassPanel>
         ) : (
           <>

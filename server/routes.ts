@@ -568,11 +568,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reset/Empty warehouse container - sets current amount to 0 (Admin only)
-  app.post("/api/containers/warehouse/:id/reset", requireAuth, requireAdmin, async (req, res) => {
+  // Reset/Empty warehouse container - sets current amount to 0 (Admin and Driver)
+  app.post("/api/containers/warehouse/:id/reset", requireAuth, async (req, res) => {
     try {
       const { reason } = req.body;
       const authUser = (req as any).authUser;
+      
+      // Both admin and driver roles are allowed (normalize to lowercase for comparison)
+      const userRole = authUser?.role?.toLowerCase();
+      if (!authUser || (userRole !== "admin" && userRole !== "driver")) {
+        return res.status(403).json({ error: "Only admin or driver roles can empty containers" });
+      }
+      
       const existingContainer = await storage.getWarehouseContainer(req.params.id);
       
       if (!existingContainer) {
@@ -606,10 +613,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recordedByUserId: authUser?.id || null,
       });
 
+      const roleLabel = userRole === "admin" ? "Admin" : "Fahrer";
       await storage.createActivityLog({
         type: "CONTAINER_STATUS_CHANGED",
         action: "CONTAINER_STATUS_CHANGED",
-        message: `Warehouse container ${req.params.id} was emptied by admin ${authUser?.name || 'Unknown'} (${previousAmount} ${existingContainer.quantityUnit} removed)`,
+        message: `Lagercontainer ${req.params.id} wurde von ${roleLabel} ${authUser?.name || 'Unbekannt'} geleert (${previousAmount} ${existingContainer.quantityUnit} entfernt)`,
         userId: authUser?.id || null,
         taskId: null,
         containerId: req.params.id,
@@ -617,7 +625,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         location: null,
         timestamp: new Date(),
         details: reason || null,
-        metadata: { previousAmount, reason, action: "CONTAINER_EMPTIED" },
+        metadata: { previousAmount, reason, action: "CONTAINER_EMPTIED", role: authUser.role },
       });
 
       res.json({ 
