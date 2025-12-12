@@ -3,22 +3,19 @@
   "main": "client/index.js",
   "version": "1.0.0",
   "scripts": {
-    "expo:dev": "npx expo start --localhost",
+    "expo:dev": "EXPO_PACKAGER_PROXY_URL=https://$REPLIT_DEV_DOMAIN REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN:5000 npx expo start --localhost",
     "server:dev": "NODE_ENV=development tsx server/index.ts",
     "all:dev": "npm run expo:dev & npm run server:dev",
-    "expo:start:static:build": "npx expo start --no-dev --minify --localhost",
+    "expo:start:static:build": "EXPO_PUBLIC_DOMAIN=$REPLIT_INTERNAL_APP_DOMAIN npx expo start --no-dev --minify --localhost",
     "expo:static:build": "node scripts/build.js",
-    "server:build": "npx esbuild server/index.ts --platform=node --target=node18 --bundle --packages=external --format=cjs --outdir=server_dist",
-    "server:start": "NODE_ENV=production node server_dist/index.js",
+    "server:build": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=server_dist",
     "server:prod": "NODE_ENV=production node server_dist/index.js",
     "db:push": "drizzle-kit push",
     "lint": "npx expo lint",
     "lint:fix": "npx expo lint --fix",
     "check:types": "tsc --noEmit",
     "check:format": "prettier --check \"**/*.{js,ts,tsx,css,json}\"",
-    "format": "prettier --write \"**/*.{js,ts,tsx,css,json}\"",
-    "build": "npx esbuild server/index.ts --platform=node --target=node18 --bundle --packages=external --format=cjs --outdir=server_dist",
-    "start": "NODE_ENV=production node server_dist/index.js"
+    "format": "prettier --write \"**/*.{js,ts,tsx,css,json}\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -31,14 +28,10 @@
     "babel-preset-expo": "^54.0.8",
     "drizzle-orm": "^0.39.3",
     "drizzle-zod": "^0.7.0",
-    "eas": "^0.1.0",
-    "eas-cli": "^16.28.0",
-    "esbuild": "^0.27.1",
     "expo": "~54.0.28",
     "expo-blur": "~15.0.8",
     "expo-camera": "^17.0.10",
     "expo-constants": "~18.0.11",
-    "expo-eas-client": "^1.0.8",
     "expo-file-system": "^19.0.20",
     "expo-font": "~14.0.10",
     "expo-glass-effect": "^0.1.8",
@@ -84,9 +77,6 @@
     "eslint-plugin-prettier": "^5.5.4",
     "prettier": "3.6.2",
     "typescript": "~5.9.2"
-  },
-  "engines": {
-    "node": "20.x"
   },
   "private": true
 }

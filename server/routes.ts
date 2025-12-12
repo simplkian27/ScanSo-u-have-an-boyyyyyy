@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
 import { storage } from "./storage";
 import { createHash } from "crypto";
-import { checkDatabaseHealth, getPoolStats, runDbTest } from "./db";
+import { checkDatabaseHealth } from "./db";
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
@@ -106,35 +106,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Database test endpoint - temporary for debugging
-  // Executes a simple query to verify DB connectivity
-  app.get("/api/db-test", async (req, res) => {
-    try {
-      const result = await runDbTest();
-      if (result.success) {
-        res.json({
-          status: "ok",
-          dbTime: result.timestamp,
-          pool: getPoolStats(),
-        });
-      } else {
-        res.status(503).json({
-          status: "error",
-          error: result.error,
-          pool: getPoolStats(),
-        });
-      }
-    } catch (error) {
-      res.status(500).json({
-        status: "error",
-        error: error instanceof Error ? error.message : "DB test failed",
+  app.get("/api/auth/replit", (req, res) => {
+    const userId = req.headers["x-replit-user-id"];
+    const userName = req.headers["x-replit-user-name"];
+    const userRoles = req.headers["x-replit-user-roles"];
+
+    if (!userId || !userName) {
+      return res.status(401).json({ 
+        error: "Not authenticated with Replit",
+        authenticated: false 
       });
     }
+
+    res.json({
+      authenticated: true,
+      replitUser: {
+        id: userId as string,
+        name: userName as string,
+        roles: userRoles ? (userRoles as string).split(",") : [],
+      }
+    });
   });
 
-  // Pool statistics endpoint - for monitoring connection pool health
-  app.get("/api/pool-stats", (req, res) => {
-    res.json(getPoolStats());
+  app.post("/api/auth/replit/login", async (req, res) => {
+    try {
+      const userId = req.headers["x-replit-user-id"];
+      const userName = req.headers["x-replit-user-name"];
+
+      if (!userId || !userName) {
+        return res.status(401).json({ error: "Not authenticated with Replit" });
+      }
+
+      const replitId = `replit-${userId}`;
+      const replitEmail = `${userName}@replit.user`;
+
+      let user = await storage.getUserByEmail(replitEmail);
+
+      if (!user) {
+        const existingUsers = await storage.getUsers();
+        const isFirstUser = existingUsers.length === 0;
+
+        user = await storage.createUser({
+          email: replitEmail,
+          password: hashPassword(`replit-${userId}-${Date.now()}`),
+          name: userName as string,
+          role: isFirstUser ? "admin" : "driver",
+        });
+      }
+
+      if (!user.isActive) {
+        return res.status(403).json({ error: "Account is deactivated" });
+      }
+
+      res.json({ user: prepareUserResponse(user) });
+    } catch (error) {
+      console.error("Replit auth error:", error);
+      res.status(500).json({ error: "Replit login failed" });
+    }
   });
 
   app.post("/api/auth/login", async (req, res) => {

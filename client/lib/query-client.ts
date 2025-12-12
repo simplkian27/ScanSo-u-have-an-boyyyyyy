@@ -1,34 +1,24 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_BASE_URL } from "@/config/api";
 
 // Auth storage key - must match AuthContext
 const AUTH_STORAGE_KEY = "@containerflow_auth_user";
 
-/**
- * Get the API base URL
- * Uses the centralized configuration from config/api.ts
- */
+// API URL Configuration
+// EXPO_PUBLIC_DOMAIN is set by Replit at startup to "$REPLIT_DEV_DOMAIN:5000"
+// This ensures all API requests go to the Express backend on port 5000
+// The Expo app NEVER connects directly to Supabase - all DB access goes through the backend
 export function getApiUrl(): string {
-  return API_BASE_URL;
-}
+  let host = process.env.EXPO_PUBLIC_DOMAIN;
 
-/**
- * Normalize API path - strips "/api" prefix if present since API_BASE_URL already ends with "/api"
- * This maintains backward compatibility with existing code that uses paths like "/api/tasks"
- */
-function normalizePath(path: string): string {
-  // Ensure path starts with /
-  let normalized = path.startsWith("/") ? path : `/${path}`;
-  
-  // Strip /api prefix if present (since API_BASE_URL already ends with /api)
-  if (normalized.startsWith("/api/")) {
-    normalized = normalized.substring(4); // Remove "/api" prefix, keep the rest
-  } else if (normalized === "/api") {
-    normalized = "";
+  if (!host) {
+    throw new Error("EXPO_PUBLIC_DOMAIN is not set");
   }
-  
-  return normalized;
+
+  // Build HTTPS URL pointing to Express backend
+  let url = new URL(`https://${host}`);
+
+  return url.href;
 }
 
 // Get current user ID from AsyncStorage for auth headers
@@ -45,19 +35,7 @@ async function getStoredUserId(): Promise<string | null> {
   return null;
 }
 
-/**
- * Check if response is HTML instead of JSON (indicates wrong URL)
- */
-function checkForHtmlResponse(res: Response, fullUrl: string): void {
-  const contentType = res.headers.get("content-type") || "";
-  if (contentType.includes("text/html")) {
-    throw new Error(
-      `API misconfigured: received HTML instead of JSON. Check API_BASE_URL. URL=${fullUrl}, API_BASE_URL=${API_BASE_URL}`
-    );
-  }
-}
-
-async function throwIfResNotOk(res: Response, fullUrl: string) {
+async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
@@ -69,14 +47,11 @@ export async function apiRequest(
   route: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // Normalize path to avoid double /api prefix
-  const path = normalizePath(route);
-  const fullUrl = `${API_BASE_URL}${path}`;
+  const baseUrl = getApiUrl();
+  const url = new URL(route, baseUrl);
 
   // Build headers with authentication
-  const headers: Record<string, string> = {
-    "Accept": "application/json",
-  };
+  const headers: Record<string, string> = {};
   if (data) {
     headers["Content-Type"] = "application/json";
   }
@@ -87,15 +62,12 @@ export async function apiRequest(
     headers["x-user-id"] = userId;
   }
 
-  const res = await fetch(fullUrl, {
+  const res = await fetch(url, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
-
-  // Check for HTML response (indicates wrong URL configuration)
-  checkForHtmlResponse(res, fullUrl);
 
   return res;
 }
@@ -106,12 +78,9 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // Normalize path to avoid double /api prefix
-    const path = normalizePath(queryKey[0] as string);
-    const fullUrl = `${API_BASE_URL}${path}`;
+    const baseUrl = getApiUrl();
+    const url = new URL(queryKey[0] as string, baseUrl);
 
-    // Build URL with query params if provided
-    const url = new URL(fullUrl);
     if (queryKey.length > 1 && queryKey[1]) {
       const params = queryKey[1] as Record<string, string>;
       Object.keys(params).forEach(key => {
@@ -121,21 +90,15 @@ export const getQueryFn: <T>(options: {
       });
     }
 
-    const res = await fetch(url.toString(), {
+    const res = await fetch(url, {
       credentials: "include",
-      headers: {
-        "Accept": "application/json",
-      },
     });
-
-    // Check for HTML response (indicates wrong URL configuration)
-    checkForHtmlResponse(res, url.toString());
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
     }
 
-    await throwIfResNotOk(res, url.toString());
+    await throwIfResNotOk(res);
     return await res.json();
   };
 

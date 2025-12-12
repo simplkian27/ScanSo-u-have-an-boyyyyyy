@@ -1,246 +1,91 @@
-"use strict";
-var __create = Object.create;
 var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-var __copyProps = (to, from, except, desc2) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc2 = __getOwnPropDesc(from, key)) || desc2.enumerable });
-  }
-  return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
 
 // server/index.ts
-var import_express = __toESM(require("express"));
+import express from "express";
 
 // server/routes.ts
-var import_node_http = require("node:http");
+import { createServer } from "node:http";
 
 // shared/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
-  ACTIVITY_LOG_TYPE_LABELS: () => ACTIVITY_LOG_TYPE_LABELS,
-  SCAN_CONTEXT_LABELS: () => SCAN_CONTEXT_LABELS,
-  TASK_STATUS_LABELS: () => TASK_STATUS_LABELS,
-  VALID_TASK_TRANSITIONS: () => VALID_TASK_TRANSITIONS,
-  activityLogTypeEnum: () => activityLogTypeEnum,
   activityLogs: () => activityLogs,
   activityLogsRelations: () => activityLogsRelations,
-  containerStatusEnum: () => containerStatusEnum,
   customerContainers: () => customerContainers,
   customerContainersRelations: () => customerContainersRelations,
-  customers: () => customers,
-  customersRelations: () => customersRelations,
   fillHistory: () => fillHistory,
   fillHistoryRelations: () => fillHistoryRelations,
-  getTimestampFieldForStatus: () => getTimestampFieldForStatus,
   insertActivityLogSchema: () => insertActivityLogSchema,
   insertCustomerContainerSchema: () => insertCustomerContainerSchema,
-  insertCustomerSchema: () => insertCustomerSchema,
   insertFillHistorySchema: () => insertFillHistorySchema,
-  insertScanEventSchema: () => insertScanEventSchema,
   insertTaskSchema: () => insertTaskSchema,
   insertUserSchema: () => insertUserSchema,
   insertWarehouseContainerSchema: () => insertWarehouseContainerSchema,
-  isValidTaskTransition: () => isValidTaskTransition,
-  locationTypeEnum: () => locationTypeEnum,
-  priorityEnum: () => priorityEnum,
-  quantityUnitEnum: () => quantityUnitEnum,
-  scanContextEnum: () => scanContextEnum,
-  scanEvents: () => scanEvents,
-  scanEventsRelations: () => scanEventsRelations,
-  taskStatusEnum: () => taskStatusEnum,
   tasks: () => tasks,
   tasksRelations: () => tasksRelations,
-  userRoleEnum: () => userRoleEnum,
   users: () => users,
   usersRelations: () => usersRelations,
   warehouseContainers: () => warehouseContainers,
   warehouseContainersRelations: () => warehouseContainersRelations
 });
-var import_drizzle_orm = require("drizzle-orm");
-var import_pg_core = require("drizzle-orm/pg-core");
-var import_drizzle_zod = require("drizzle-zod");
-var userRoleEnum = (0, import_pg_core.pgEnum)("user_role", ["ADMIN", "DRIVER"]);
-var containerStatusEnum = (0, import_pg_core.pgEnum)("container_status", [
-  "AT_WAREHOUSE",
-  // Container is at the warehouse
-  "AT_CUSTOMER",
-  // Container is at customer location
-  "IN_TRANSIT",
-  // Container is being transported
-  "OUT_OF_SERVICE"
-  // Container is not available (maintenance, etc.)
-]);
-var taskStatusEnum = (0, import_pg_core.pgEnum)("task_status", [
-  "OFFEN",
-  // Task created, open and not yet assigned (initial state)
-  "PLANNED",
-  // Legacy: same as OFFEN (kept for backward compatibility)
-  "ASSIGNED",
-  // Task assigned to a driver
-  "ACCEPTED",
-  // Driver has accepted the task (scanned at customer)
-  "PICKED_UP",
-  // Container picked up from customer
-  "IN_TRANSIT",
-  // Container being transported to warehouse
-  "DELIVERED",
-  // Container delivered to warehouse (scanned)
-  "COMPLETED",
-  // Task fully completed (weight recorded, etc.)
-  "CANCELLED"
-  // Task was cancelled
-]);
-var scanContextEnum = (0, import_pg_core.pgEnum)("scan_context", [
-  "WAREHOUSE_INFO",
-  // General info scan in warehouse (no task)
-  "CUSTOMER_INFO",
-  // General info scan at customer (no task)
-  "TASK_ACCEPT_AT_CUSTOMER",
-  // Driver scans to accept task at customer
-  "TASK_PICKUP",
-  // Driver scans to confirm pickup
-  "TASK_COMPLETE_AT_WAREHOUSE",
-  // Driver scans at warehouse to complete delivery
-  "INVENTORY_CHECK",
-  // Inventory/audit scan
-  "MAINTENANCE"
-  // Maintenance-related scan
-]);
-var locationTypeEnum = (0, import_pg_core.pgEnum)("location_type", [
-  "WAREHOUSE",
-  "CUSTOMER",
-  "OTHER"
-]);
-var activityLogTypeEnum = (0, import_pg_core.pgEnum)("activity_log_type", [
-  "TASK_CREATED",
-  "TASK_ASSIGNED",
-  "TASK_ACCEPTED",
-  "TASK_PICKED_UP",
-  "TASK_IN_TRANSIT",
-  "TASK_DELIVERED",
-  "TASK_COMPLETED",
-  "TASK_CANCELLED",
-  "TASK_DELETED",
-  "CONTAINER_SCANNED_AT_CUSTOMER",
-  "CONTAINER_SCANNED_AT_WAREHOUSE",
-  "CONTAINER_STATUS_CHANGED",
-  "WEIGHT_RECORDED",
-  "MANUAL_EDIT",
-  "SYSTEM_EVENT"
-]);
-var priorityEnum = (0, import_pg_core.pgEnum)("priority", ["normal", "high", "urgent"]);
-var quantityUnitEnum = (0, import_pg_core.pgEnum)("quantity_unit", ["kg", "t", "m3", "pcs"]);
-var users = (0, import_pg_core.pgTable)("users", {
-  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
-  email: (0, import_pg_core.text)("email").notNull().unique(),
-  password: (0, import_pg_core.text)("password").notNull(),
-  name: (0, import_pg_core.text)("name").notNull(),
-  phone: (0, import_pg_core.text)("phone"),
-  role: (0, import_pg_core.text)("role").notNull().default("DRIVER"),
-  // ADMIN or DRIVER
-  isActive: (0, import_pg_core.boolean)("is_active").notNull().default(true),
-  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow(),
-  updatedAt: (0, import_pg_core.timestamp)("updated_at").notNull().defaultNow()
+import { sql, relations } from "drizzle-orm";
+import { pgTable, text, varchar, boolean, timestamp, real, jsonb } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+var users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  name: text("name").notNull(),
+  role: text("role").notNull().default("driver"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow()
 });
-var usersRelations = (0, import_drizzle_orm.relations)(users, ({ many }) => ({
-  createdTasks: many(tasks, { relationName: "taskCreator" }),
-  assignedTasks: many(tasks, { relationName: "taskAssignee" }),
-  scanEvents: many(scanEvents),
+var usersRelations = relations(users, ({ many }) => ({
+  tasks: many(tasks),
   activityLogs: many(activityLogs)
 }));
-var customers = (0, import_pg_core.pgTable)("customers", {
-  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
-  name: (0, import_pg_core.text)("name").notNull(),
-  address: (0, import_pg_core.text)("address"),
-  contactName: (0, import_pg_core.text)("contact_name"),
-  contactPhone: (0, import_pg_core.text)("contact_phone"),
-  contactEmail: (0, import_pg_core.text)("contact_email"),
-  notes: (0, import_pg_core.text)("notes"),
-  isActive: (0, import_pg_core.boolean)("is_active").notNull().default(true),
-  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow(),
-  updatedAt: (0, import_pg_core.timestamp)("updated_at").notNull().defaultNow()
+var customerContainers = pgTable("customer_containers", {
+  id: varchar("id").primaryKey(),
+  customerName: text("customer_name").notNull(),
+  location: text("location").notNull(),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  materialType: text("material_type").notNull(),
+  lastEmptied: timestamp("last_emptied"),
+  qrCode: text("qr_code").notNull().unique(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow()
 });
-var customersRelations = (0, import_drizzle_orm.relations)(customers, ({ many }) => ({
-  containers: many(customerContainers)
+var customerContainersRelations = relations(customerContainers, ({ many }) => ({
+  tasks: many(tasks)
 }));
-var customerContainers = (0, import_pg_core.pgTable)("customer_containers", {
-  id: (0, import_pg_core.varchar)("id").primaryKey(),
-  customerId: (0, import_pg_core.varchar)("customer_id").references(() => customers.id),
-  customerName: (0, import_pg_core.text)("customer_name").notNull(),
-  // Denormalized for convenience
-  location: (0, import_pg_core.text)("location").notNull(),
-  latitude: (0, import_pg_core.real)("latitude"),
-  longitude: (0, import_pg_core.real)("longitude"),
-  qrCode: (0, import_pg_core.text)("qr_code").notNull().unique(),
-  materialType: (0, import_pg_core.text)("material_type").notNull(),
-  contentDescription: (0, import_pg_core.text)("content_description"),
-  status: (0, import_pg_core.text)("status").notNull().default("AT_CUSTOMER"),
-  // AT_CUSTOMER, IN_TRANSIT, etc.
-  lastEmptied: (0, import_pg_core.timestamp)("last_emptied"),
-  isActive: (0, import_pg_core.boolean)("is_active").notNull().default(true),
-  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow(),
-  updatedAt: (0, import_pg_core.timestamp)("updated_at").notNull().defaultNow()
+var warehouseContainers = pgTable("warehouse_containers", {
+  id: varchar("id").primaryKey(),
+  location: text("location").notNull(),
+  materialType: text("material_type").notNull(),
+  currentAmount: real("current_amount").notNull().default(0),
+  maxCapacity: real("max_capacity").notNull(),
+  lastEmptied: timestamp("last_emptied"),
+  qrCode: text("qr_code").notNull().unique(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow()
 });
-var customerContainersRelations = (0, import_drizzle_orm.relations)(customerContainers, ({ one, many }) => ({
-  customer: one(customers, {
-    fields: [customerContainers.customerId],
-    references: [customers.id]
-  }),
+var warehouseContainersRelations = relations(warehouseContainers, ({ many }) => ({
   tasks: many(tasks),
-  scanEvents: many(scanEvents)
+  fillHistory: many(fillHistory)
 }));
-var warehouseContainers = (0, import_pg_core.pgTable)("warehouse_containers", {
-  id: (0, import_pg_core.varchar)("id").primaryKey(),
-  location: (0, import_pg_core.text)("location").notNull(),
-  warehouseZone: (0, import_pg_core.text)("warehouse_zone"),
-  // e.g., "A-17", "Tor 3"
-  qrCode: (0, import_pg_core.text)("qr_code").notNull().unique(),
-  materialType: (0, import_pg_core.text)("material_type").notNull(),
-  contentDescription: (0, import_pg_core.text)("content_description"),
-  currentAmount: (0, import_pg_core.real)("current_amount").notNull().default(0),
-  maxCapacity: (0, import_pg_core.real)("max_capacity").notNull(),
-  quantityUnit: (0, import_pg_core.text)("quantity_unit").notNull().default("kg"),
-  // kg, t, m3
-  status: (0, import_pg_core.text)("status").notNull().default("AT_WAREHOUSE"),
-  // AT_WAREHOUSE, OUT_OF_SERVICE
-  lastEmptied: (0, import_pg_core.timestamp)("last_emptied"),
-  isActive: (0, import_pg_core.boolean)("is_active").notNull().default(true),
-  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow(),
-  updatedAt: (0, import_pg_core.timestamp)("updated_at").notNull().defaultNow()
+var fillHistory = pgTable("fill_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  warehouseContainerId: varchar("warehouse_container_id").notNull().references(() => warehouseContainers.id),
+  amountAdded: real("amount_added").notNull(),
+  taskId: varchar("task_id").references(() => tasks.id),
+  createdAt: timestamp("created_at").notNull().defaultNow()
 });
-var warehouseContainersRelations = (0, import_drizzle_orm.relations)(warehouseContainers, ({ many }) => ({
-  tasks: many(tasks),
-  fillHistory: many(fillHistory),
-  scanEvents: many(scanEvents)
-}));
-var fillHistory = (0, import_pg_core.pgTable)("fill_history", {
-  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
-  warehouseContainerId: (0, import_pg_core.varchar)("warehouse_container_id").notNull().references(() => warehouseContainers.id),
-  amountAdded: (0, import_pg_core.real)("amount_added").notNull(),
-  quantityUnit: (0, import_pg_core.text)("quantity_unit").notNull().default("kg"),
-  taskId: (0, import_pg_core.varchar)("task_id").references(() => tasks.id),
-  recordedByUserId: (0, import_pg_core.varchar)("recorded_by_user_id").references(() => users.id),
-  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow()
-});
-var fillHistoryRelations = (0, import_drizzle_orm.relations)(fillHistory, ({ one }) => ({
+var fillHistoryRelations = relations(fillHistory, ({ one }) => ({
   warehouseContainer: one(warehouseContainers, {
     fields: [fillHistory.warehouseContainerId],
     references: [warehouseContainers.id]
@@ -248,64 +93,34 @@ var fillHistoryRelations = (0, import_drizzle_orm.relations)(fillHistory, ({ one
   task: one(tasks, {
     fields: [fillHistory.taskId],
     references: [tasks.id]
-  }),
-  recordedBy: one(users, {
-    fields: [fillHistory.recordedByUserId],
-    references: [users.id]
   })
 }));
-var tasks = (0, import_pg_core.pgTable)("tasks", {
-  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
-  // Task Details
-  title: (0, import_pg_core.text)("title"),
-  // Short description, e.g., "Abholung bei ABC GmbH"
-  description: (0, import_pg_core.text)("description"),
-  // Detailed description
-  // Container References
-  containerID: (0, import_pg_core.varchar)("container_id").notNull().references(() => customerContainers.id),
-  deliveryContainerID: (0, import_pg_core.varchar)("delivery_container_id").references(() => warehouseContainers.id),
-  // User References
-  createdBy: (0, import_pg_core.varchar)("created_by").references(() => users.id),
-  assignedTo: (0, import_pg_core.varchar)("assigned_to").references(() => users.id),
-  // Planning
-  scheduledTime: (0, import_pg_core.timestamp)("scheduled_time"),
-  // Planned execution time
-  plannedQuantity: (0, import_pg_core.real)("planned_quantity"),
-  // Expected amount
-  plannedQuantityUnit: (0, import_pg_core.text)("planned_quantity_unit").default("kg"),
-  priority: (0, import_pg_core.text)("priority").notNull().default("normal"),
-  // normal, high, urgent
-  materialType: (0, import_pg_core.text)("material_type").notNull(),
-  // Status and Lifecycle
-  status: (0, import_pg_core.text)("status").notNull().default("PLANNED"),
-  // Lifecycle Timestamps - Set when status changes
-  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow(),
-  assignedAt: (0, import_pg_core.timestamp)("assigned_at"),
-  acceptedAt: (0, import_pg_core.timestamp)("accepted_at"),
-  pickedUpAt: (0, import_pg_core.timestamp)("picked_up_at"),
-  inTransitAt: (0, import_pg_core.timestamp)("in_transit_at"),
-  deliveredAt: (0, import_pg_core.timestamp)("delivered_at"),
-  completedAt: (0, import_pg_core.timestamp)("completed_at"),
-  cancelledAt: (0, import_pg_core.timestamp)("cancelled_at"),
-  // Legacy fields for backward compatibility
-  pickupTimestamp: (0, import_pg_core.timestamp)("pickup_timestamp"),
-  pickupLocation: (0, import_pg_core.jsonb)("pickup_location"),
-  deliveryTimestamp: (0, import_pg_core.timestamp)("delivery_timestamp"),
-  // Actual recorded values
-  actualQuantity: (0, import_pg_core.real)("actual_quantity"),
-  // Actually measured amount
-  actualQuantityUnit: (0, import_pg_core.text)("actual_quantity_unit").default("kg"),
-  // Additional info
-  notes: (0, import_pg_core.text)("notes"),
-  cancellationReason: (0, import_pg_core.text)("cancellation_reason"),
-  estimatedAmount: (0, import_pg_core.real)("estimated_amount"),
-  // Legacy, use plannedQuantity
-  updatedAt: (0, import_pg_core.timestamp)("updated_at").notNull().defaultNow()
+var tasks = pgTable("tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  containerID: varchar("container_id").notNull().references(() => customerContainers.id),
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  status: text("status").notNull().default("open"),
+  scheduledTime: timestamp("scheduled_time"),
+  priority: text("priority").notNull().default("normal"),
+  notes: text("notes"),
+  materialType: text("material_type").notNull(),
+  estimatedAmount: real("estimated_amount"),
+  pickupTimestamp: timestamp("pickup_timestamp"),
+  pickupLocation: jsonb("pickup_location"),
+  deliveryTimestamp: timestamp("delivery_timestamp"),
+  deliveryContainerID: varchar("delivery_container_id").references(() => warehouseContainers.id),
+  cancellationReason: text("cancellation_reason"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow()
 });
-var tasksRelations = (0, import_drizzle_orm.relations)(tasks, ({ one, many }) => ({
+var tasksRelations = relations(tasks, ({ one }) => ({
   container: one(customerContainers, {
     fields: [tasks.containerID],
     references: [customerContainers.id]
+  }),
+  assignee: one(users, {
+    fields: [tasks.assignedTo],
+    references: [users.id]
   }),
   deliveryContainer: one(warehouseContainers, {
     fields: [tasks.deliveryContainerID],
@@ -313,90 +128,20 @@ var tasksRelations = (0, import_drizzle_orm.relations)(tasks, ({ one, many }) =>
   }),
   creator: one(users, {
     fields: [tasks.createdBy],
-    references: [users.id],
-    relationName: "taskCreator"
-  }),
-  assignee: one(users, {
-    fields: [tasks.assignedTo],
-    references: [users.id],
-    relationName: "taskAssignee"
-  }),
-  scanEvents: many(scanEvents),
-  activityLogs: many(activityLogs),
-  fillHistory: many(fillHistory)
-}));
-var scanEvents = (0, import_pg_core.pgTable)("scan_events", {
-  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
-  // What was scanned
-  containerId: (0, import_pg_core.varchar)("container_id").notNull(),
-  // Can be customer or warehouse container
-  containerType: (0, import_pg_core.text)("container_type").notNull(),
-  // "customer" or "warehouse"
-  // Task context (optional - null for info-only scans)
-  taskId: (0, import_pg_core.varchar)("task_id").references(() => tasks.id),
-  // Who scanned
-  scannedByUserId: (0, import_pg_core.varchar)("scanned_by_user_id").notNull().references(() => users.id),
-  // When and where
-  scannedAt: (0, import_pg_core.timestamp)("scanned_at").notNull().defaultNow(),
-  // Scan context - what was the purpose of this scan
-  scanContext: (0, import_pg_core.text)("scan_context").notNull(),
-  // WAREHOUSE_INFO, TASK_ACCEPT_AT_CUSTOMER, etc.
-  // Location information
-  locationType: (0, import_pg_core.text)("location_type").notNull(),
-  // WAREHOUSE, CUSTOMER, OTHER
-  locationDetails: (0, import_pg_core.text)("location_details"),
-  // Free text, e.g., "Tor 3", "Regal A-17"
-  geoLocation: (0, import_pg_core.jsonb)("geo_location"),
-  // { latitude, longitude, accuracy }
-  // Scan result
-  scanResult: (0, import_pg_core.text)("scan_result").notNull().default("SUCCESS"),
-  // SUCCESS, INVALID_CONTAINER, ERROR
-  resultMessage: (0, import_pg_core.text)("result_message"),
-  // Human-readable result description
-  // Additional data for debugging/audit
-  extraData: (0, import_pg_core.jsonb)("extra_data"),
-  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow()
-});
-var scanEventsRelations = (0, import_drizzle_orm.relations)(scanEvents, ({ one }) => ({
-  scannedBy: one(users, {
-    fields: [scanEvents.scannedByUserId],
     references: [users.id]
-  }),
-  task: one(tasks, {
-    fields: [scanEvents.taskId],
-    references: [tasks.id]
   })
 }));
-var activityLogs = (0, import_pg_core.pgTable)("activity_logs", {
-  id: (0, import_pg_core.varchar)("id").primaryKey().default(import_drizzle_orm.sql`gen_random_uuid()`),
-  // Event classification
-  type: (0, import_pg_core.text)("type").notNull(),
-  // TASK_CREATED, TASK_ACCEPTED, CONTAINER_SCANNED_AT_WAREHOUSE, etc.
-  action: (0, import_pg_core.text)("action").notNull(),
-  // Legacy field, same as type for backward compatibility
-  // Human-readable message for UI display
-  message: (0, import_pg_core.text)("message").notNull(),
-  // e.g., "Fahrer Müller hat Container XYZ beim Kunden gescannt"
-  // References
-  userId: (0, import_pg_core.varchar)("user_id").references(() => users.id),
-  // Who triggered this event
-  taskId: (0, import_pg_core.varchar)("task_id").references(() => tasks.id),
-  containerId: (0, import_pg_core.varchar)("container_id"),
-  // Can be customer or warehouse container ID
-  scanEventId: (0, import_pg_core.varchar)("scan_event_id").references(() => scanEvents.id),
-  // Link to scan if applicable
-  // Location at time of event
-  location: (0, import_pg_core.jsonb)("location"),
-  // Additional structured details
-  details: (0, import_pg_core.text)("details"),
-  // Legacy field
-  metadata: (0, import_pg_core.jsonb)("metadata"),
-  // Additional structured data
-  // Timestamp
-  timestamp: (0, import_pg_core.timestamp)("timestamp").notNull().defaultNow(),
-  createdAt: (0, import_pg_core.timestamp)("created_at").notNull().defaultNow()
+var activityLogs = pgTable("activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  action: text("action").notNull(),
+  taskId: varchar("task_id").references(() => tasks.id),
+  containerId: varchar("container_id"),
+  location: jsonb("location"),
+  details: text("details"),
+  createdAt: timestamp("created_at").notNull().defaultNow()
 });
-var activityLogsRelations = (0, import_drizzle_orm.relations)(activityLogs, ({ one }) => ({
+var activityLogsRelations = relations(activityLogs, ({ one }) => ({
   user: one(users, {
     fields: [activityLogs.userId],
     references: [users.id]
@@ -404,178 +149,41 @@ var activityLogsRelations = (0, import_drizzle_orm.relations)(activityLogs, ({ o
   task: one(tasks, {
     fields: [activityLogs.taskId],
     references: [tasks.id]
-  }),
-  scanEvent: one(scanEvents, {
-    fields: [activityLogs.scanEventId],
-    references: [scanEvents.id]
   })
 }));
-var insertUserSchema = (0, import_drizzle_zod.createInsertSchema)(users).pick({
+var insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
   name: true,
-  phone: true,
   role: true
 });
-var insertCustomerSchema = (0, import_drizzle_zod.createInsertSchema)(customers);
-var insertCustomerContainerSchema = (0, import_drizzle_zod.createInsertSchema)(customerContainers);
-var insertWarehouseContainerSchema = (0, import_drizzle_zod.createInsertSchema)(warehouseContainers);
-var insertTaskSchema = (0, import_drizzle_zod.createInsertSchema)(tasks);
-var insertScanEventSchema = (0, import_drizzle_zod.createInsertSchema)(scanEvents);
-var insertActivityLogSchema = (0, import_drizzle_zod.createInsertSchema)(activityLogs);
-var insertFillHistorySchema = (0, import_drizzle_zod.createInsertSchema)(fillHistory);
-var VALID_TASK_TRANSITIONS = {
-  OFFEN: ["ASSIGNED", "ACCEPTED", "CANCELLED"],
-  // New task - can be assigned or directly accepted
-  PLANNED: ["ASSIGNED", "ACCEPTED", "CANCELLED"],
-  // Legacy: same as OFFEN
-  ASSIGNED: ["ACCEPTED", "OFFEN", "PLANNED", "CANCELLED"],
-  ACCEPTED: ["PICKED_UP", "CANCELLED"],
-  PICKED_UP: ["IN_TRANSIT", "DELIVERED", "CANCELLED"],
-  // Allow skipping IN_TRANSIT for simpler flow
-  IN_TRANSIT: ["DELIVERED", "CANCELLED"],
-  DELIVERED: ["COMPLETED", "CANCELLED"],
-  COMPLETED: [],
-  // Terminal state
-  CANCELLED: []
-  // Terminal state
-};
-function isValidTaskTransition(currentStatus, newStatus) {
-  const validTransitions = VALID_TASK_TRANSITIONS[currentStatus];
-  if (!validTransitions) return false;
-  return validTransitions.includes(newStatus);
-}
-function getTimestampFieldForStatus(status) {
-  const mapping = {
-    ASSIGNED: "assignedAt",
-    ACCEPTED: "acceptedAt",
-    PICKED_UP: "pickedUpAt",
-    IN_TRANSIT: "inTransitAt",
-    DELIVERED: "deliveredAt",
-    COMPLETED: "completedAt",
-    CANCELLED: "cancelledAt"
-  };
-  return mapping[status] || null;
-}
-var TASK_STATUS_LABELS = {
-  OFFEN: "Offen",
-  PLANNED: "Geplant",
-  // Legacy, same as OFFEN
-  ASSIGNED: "Zugewiesen",
-  ACCEPTED: "Angenommen",
-  PICKED_UP: "Abgeholt",
-  IN_TRANSIT: "Unterwegs",
-  DELIVERED: "Geliefert",
-  COMPLETED: "Abgeschlossen",
-  CANCELLED: "Storniert"
-};
-var SCAN_CONTEXT_LABELS = {
-  WAREHOUSE_INFO: "Info-Scan im Lager",
-  CUSTOMER_INFO: "Info-Scan beim Kunden",
-  TASK_ACCEPT_AT_CUSTOMER: "Auftragsannahme beim Kunden",
-  TASK_PICKUP: "Abholung best\xE4tigt",
-  TASK_COMPLETE_AT_WAREHOUSE: "Lieferung im Lager",
-  INVENTORY_CHECK: "Inventurpr\xFCfung",
-  MAINTENANCE: "Wartungsscan"
-};
-var ACTIVITY_LOG_TYPE_LABELS = {
-  TASK_CREATED: "Auftrag erstellt",
-  TASK_ASSIGNED: "Auftrag zugewiesen",
-  TASK_ACCEPTED: "Auftrag angenommen",
-  TASK_PICKED_UP: "Container abgeholt",
-  TASK_IN_TRANSIT: "Transport gestartet",
-  TASK_DELIVERED: "Container geliefert",
-  TASK_COMPLETED: "Auftrag abgeschlossen",
-  TASK_CANCELLED: "Auftrag storniert",
-  TASK_DELETED: "Auftrag gel\xF6scht",
-  CONTAINER_SCANNED_AT_CUSTOMER: "Container beim Kunden gescannt",
-  CONTAINER_SCANNED_AT_WAREHOUSE: "Container im Lager gescannt",
-  CONTAINER_STATUS_CHANGED: "Container-Status ge\xE4ndert",
-  WEIGHT_RECORDED: "Gewicht erfasst",
-  MANUAL_EDIT: "Manuelle Bearbeitung",
-  SYSTEM_EVENT: "Systemereignis"
-};
+var insertCustomerContainerSchema = createInsertSchema(customerContainers);
+var insertWarehouseContainerSchema = createInsertSchema(warehouseContainers);
+var insertTaskSchema = createInsertSchema(tasks);
+var insertActivityLogSchema = createInsertSchema(activityLogs);
+var insertFillHistorySchema = createInsertSchema(fillHistory);
 
 // server/db.ts
-var import_node_postgres = require("drizzle-orm/node-postgres");
-var import_pg = __toESM(require("pg"));
-var { Pool } = import_pg.default;
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
+var { Pool } = pg;
 if (!process.env.DATABASE_URL) {
   throw new Error(
-    "DATABASE_URL must be set. For Supabase, copy the connection string from your Supabase Dashboard \u2192 Settings \u2192 Database \u2192 Connection String (URI format)."
+    "DATABASE_URL must be set. Did you forget to provision a database?"
   );
 }
-var databaseUrl = process.env.DATABASE_URL;
-var isSupabase = databaseUrl.includes("supabase") || databaseUrl.includes(":6543");
-var poolConfig = {
-  connectionString: databaseUrl,
-  max: 10,
-  idleTimeoutMillis: 3e4,
-  connectionTimeoutMillis: 1e4,
-  ...isSupabase && {
-    ssl: {
-      rejectUnauthorized: false
-    }
-  }
-};
-var pool = new Pool(poolConfig);
-var db = (0, import_node_postgres.drizzle)(pool, { schema: schema_exports });
-pool.on("error", (err) => {
-  console.error("[DB POOL] Unexpected error on idle client:", err.message);
-});
-pool.on("connect", () => {
-  if (process.env.DB_DEBUG === "true") {
-    console.log("[DB POOL] New client connected");
-  }
-});
-if (process.env.DB_DEBUG === "true") {
-  setInterval(() => {
-    console.log(`[DB POOL] total=${pool.totalCount} idle=${pool.idleCount} waiting=${pool.waitingCount}`);
-  }, 3e4);
-}
-async function checkDatabaseHealth() {
-  try {
-    const result = await pool.query("SELECT 1 as ok");
-    return { connected: result.rows[0]?.ok === 1 };
-  } catch (error) {
-    console.error("[DB POOL] Health check failed:", error);
-    return {
-      connected: false,
-      error: error instanceof Error ? error.message : "Unknown database error"
-    };
-  }
-}
-function getPoolStats() {
-  return {
-    totalCount: pool.totalCount,
-    idleCount: pool.idleCount,
-    waitingCount: pool.waitingCount
-  };
-}
-async function runDbTest() {
-  try {
-    const result = await pool.query("SELECT now() as now");
-    return { success: true, timestamp: result.rows[0]?.now };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Query failed"
-    };
-  }
-}
+var pool = new Pool({ connectionString: process.env.DATABASE_URL });
+var db = drizzle(pool, { schema: schema_exports });
 
 // server/storage.ts
-var import_drizzle_orm2 = require("drizzle-orm");
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 var DatabaseStorage = class {
-  // ============================================================================
-  // USERS
-  // ============================================================================
   async getUser(id) {
-    const [user] = await db.select().from(users).where((0, import_drizzle_orm2.eq)(users.id, id));
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || void 0;
   }
   async getUserByEmail(email) {
-    const [user] = await db.select().from(users).where((0, import_drizzle_orm2.eq)(users.email, email));
+    const [user] = await db.select().from(users).where(eq(users.email, email));
     return user || void 0;
   }
   async createUser(insertUser) {
@@ -583,44 +191,21 @@ var DatabaseStorage = class {
     return user;
   }
   async getUsers() {
-    return db.select().from(users).where((0, import_drizzle_orm2.eq)(users.isActive, true));
+    return db.select().from(users).where(eq(users.isActive, true));
   }
   async updateUser(id, data) {
-    const updateData = { ...data, updatedAt: /* @__PURE__ */ new Date() };
-    const [user] = await db.update(users).set(updateData).where((0, import_drizzle_orm2.eq)(users.id, id)).returning();
+    const [user] = await db.update(users).set(data).where(eq(users.id, id)).returning();
     return user || void 0;
   }
-  // ============================================================================
-  // CUSTOMERS
-  // ============================================================================
-  async getCustomers() {
-    return db.select().from(customers).where((0, import_drizzle_orm2.eq)(customers.isActive, true));
-  }
-  async getCustomer(id) {
-    const [customer] = await db.select().from(customers).where((0, import_drizzle_orm2.eq)(customers.id, id));
-    return customer || void 0;
-  }
-  async createCustomer(data) {
-    const [customer] = await db.insert(customers).values(data).returning();
-    return customer;
-  }
-  async updateCustomer(id, data) {
-    const updateData = { ...data, updatedAt: /* @__PURE__ */ new Date() };
-    const [customer] = await db.update(customers).set(updateData).where((0, import_drizzle_orm2.eq)(customers.id, id)).returning();
-    return customer || void 0;
-  }
-  // ============================================================================
-  // CUSTOMER CONTAINERS
-  // ============================================================================
   async getCustomerContainers() {
-    return db.select().from(customerContainers).where((0, import_drizzle_orm2.eq)(customerContainers.isActive, true));
+    return db.select().from(customerContainers).where(eq(customerContainers.isActive, true));
   }
   async getCustomerContainer(id) {
-    const [container] = await db.select().from(customerContainers).where((0, import_drizzle_orm2.eq)(customerContainers.id, id));
+    const [container] = await db.select().from(customerContainers).where(eq(customerContainers.id, id));
     return container || void 0;
   }
   async getCustomerContainerByQR(qrCode) {
-    const [container] = await db.select().from(customerContainers).where((0, import_drizzle_orm2.eq)(customerContainers.qrCode, qrCode));
+    const [container] = await db.select().from(customerContainers).where(eq(customerContainers.qrCode, qrCode));
     return container || void 0;
   }
   async createCustomerContainer(data) {
@@ -628,22 +213,18 @@ var DatabaseStorage = class {
     return container;
   }
   async updateCustomerContainer(id, data) {
-    const updateData = { ...data, updatedAt: /* @__PURE__ */ new Date() };
-    const [container] = await db.update(customerContainers).set(updateData).where((0, import_drizzle_orm2.eq)(customerContainers.id, id)).returning();
+    const [container] = await db.update(customerContainers).set(data).where(eq(customerContainers.id, id)).returning();
     return container || void 0;
   }
-  // ============================================================================
-  // WAREHOUSE CONTAINERS
-  // ============================================================================
   async getWarehouseContainers() {
-    return db.select().from(warehouseContainers).where((0, import_drizzle_orm2.eq)(warehouseContainers.isActive, true));
+    return db.select().from(warehouseContainers).where(eq(warehouseContainers.isActive, true));
   }
   async getWarehouseContainer(id) {
-    const [container] = await db.select().from(warehouseContainers).where((0, import_drizzle_orm2.eq)(warehouseContainers.id, id));
+    const [container] = await db.select().from(warehouseContainers).where(eq(warehouseContainers.id, id));
     return container || void 0;
   }
   async getWarehouseContainerByQR(qrCode) {
-    const [container] = await db.select().from(warehouseContainers).where((0, import_drizzle_orm2.eq)(warehouseContainers.qrCode, qrCode));
+    const [container] = await db.select().from(warehouseContainers).where(eq(warehouseContainers.qrCode, qrCode));
     return container || void 0;
   }
   async createWarehouseContainer(data) {
@@ -651,36 +232,33 @@ var DatabaseStorage = class {
     return container;
   }
   async updateWarehouseContainer(id, data) {
-    const updateData = { ...data, updatedAt: /* @__PURE__ */ new Date() };
-    const [container] = await db.update(warehouseContainers).set(updateData).where((0, import_drizzle_orm2.eq)(warehouseContainers.id, id)).returning();
+    const [container] = await db.update(warehouseContainers).set(data).where(eq(warehouseContainers.id, id)).returning();
     return container || void 0;
   }
-  // ============================================================================
-  // TASKS
-  // ============================================================================
   async getTasks(filters) {
+    let query = db.select().from(tasks);
     const conditions = [];
     if (filters?.assignedTo) {
-      conditions.push((0, import_drizzle_orm2.eq)(tasks.assignedTo, filters.assignedTo));
+      conditions.push(eq(tasks.assignedTo, filters.assignedTo));
     }
     if (filters?.status) {
-      conditions.push((0, import_drizzle_orm2.eq)(tasks.status, filters.status));
+      conditions.push(eq(tasks.status, filters.status));
     }
     if (filters?.date) {
       const startOfDay = new Date(filters.date);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(filters.date);
       endOfDay.setHours(23, 59, 59, 999);
-      conditions.push((0, import_drizzle_orm2.gte)(tasks.scheduledTime, startOfDay));
-      conditions.push((0, import_drizzle_orm2.lte)(tasks.scheduledTime, endOfDay));
+      conditions.push(gte(tasks.scheduledTime, startOfDay));
+      conditions.push(lte(tasks.scheduledTime, endOfDay));
     }
     if (conditions.length > 0) {
-      return db.select().from(tasks).where((0, import_drizzle_orm2.and)(...conditions)).orderBy((0, import_drizzle_orm2.desc)(tasks.createdAt));
+      return db.select().from(tasks).where(and(...conditions)).orderBy(desc(tasks.createdAt));
     }
-    return db.select().from(tasks).orderBy((0, import_drizzle_orm2.desc)(tasks.createdAt));
+    return db.select().from(tasks).orderBy(desc(tasks.createdAt));
   }
   async getTask(id) {
-    const [task] = await db.select().from(tasks).where((0, import_drizzle_orm2.eq)(tasks.id, id));
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
     return task || void 0;
   }
   async createTask(data) {
@@ -688,118 +266,31 @@ var DatabaseStorage = class {
     return task;
   }
   async updateTask(id, data) {
-    const updateData = { ...data, updatedAt: /* @__PURE__ */ new Date() };
-    const [task] = await db.update(tasks).set(updateData).where((0, import_drizzle_orm2.eq)(tasks.id, id)).returning();
+    const [task] = await db.update(tasks).set(data).where(eq(tasks.id, id)).returning();
     return task || void 0;
   }
-  /**
-   * Update task status with validation and automatic timestamp setting
-   * Returns undefined if transition is invalid
-   */
-  async updateTaskStatus(id, newStatus, userId) {
-    const currentTask = await this.getTask(id);
-    if (!currentTask) return void 0;
-    if (!isValidTaskTransition(currentTask.status, newStatus)) {
-      console.warn(`Invalid task transition: ${currentTask.status} -> ${newStatus}`);
-      return void 0;
-    }
-    const updateData = {
-      status: newStatus,
-      updatedAt: /* @__PURE__ */ new Date()
-    };
-    const timestampField = getTimestampFieldForStatus(newStatus);
-    if (timestampField) {
-      updateData[timestampField] = /* @__PURE__ */ new Date();
-    }
-    if (newStatus === "ASSIGNED" && userId) {
-      updateData.assignedTo = userId;
-    }
-    if (newStatus === "ACCEPTED" && (currentTask.status === "OFFEN" || currentTask.status === "PLANNED") && userId) {
-      updateData.assignedTo = userId;
-      updateData.assignedAt = /* @__PURE__ */ new Date();
-    }
-    if (newStatus === "ACCEPTED" && userId && !currentTask.assignedTo) {
-      updateData.assignedTo = userId;
-      updateData.assignedAt = /* @__PURE__ */ new Date();
-    }
-    const [task] = await db.update(tasks).set(updateData).where((0, import_drizzle_orm2.eq)(tasks.id, id)).returning();
-    return task || void 0;
-  }
-  /**
-   * Delete a task and handle related data (scan events, activity logs, fill history)
-   * Returns true if the task was deleted, false if not found
-   */
-  async deleteTask(id) {
-    const existingTask = await this.getTask(id);
-    if (!existingTask) return false;
-    await db.update(scanEvents).set({ taskId: null }).where((0, import_drizzle_orm2.eq)(scanEvents.taskId, id));
-    await db.update(activityLogs).set({ taskId: null }).where((0, import_drizzle_orm2.eq)(activityLogs.taskId, id));
-    await db.update(fillHistory).set({ taskId: null }).where((0, import_drizzle_orm2.eq)(fillHistory.taskId, id));
-    const result = await db.delete(tasks).where((0, import_drizzle_orm2.eq)(tasks.id, id)).returning();
-    return result.length > 0;
-  }
-  // ============================================================================
-  // SCAN EVENTS
-  // ============================================================================
-  async getScanEvents(filters) {
-    const conditions = [];
-    if (filters?.containerId) {
-      conditions.push((0, import_drizzle_orm2.eq)(scanEvents.containerId, filters.containerId));
-    }
-    if (filters?.taskId) {
-      conditions.push((0, import_drizzle_orm2.eq)(scanEvents.taskId, filters.taskId));
-    }
-    if (filters?.userId) {
-      conditions.push((0, import_drizzle_orm2.eq)(scanEvents.scannedByUserId, filters.userId));
-    }
-    if (conditions.length > 0) {
-      return db.select().from(scanEvents).where((0, import_drizzle_orm2.and)(...conditions)).orderBy((0, import_drizzle_orm2.desc)(scanEvents.scannedAt));
-    }
-    return db.select().from(scanEvents).orderBy((0, import_drizzle_orm2.desc)(scanEvents.scannedAt));
-  }
-  async getScanEvent(id) {
-    const [event] = await db.select().from(scanEvents).where((0, import_drizzle_orm2.eq)(scanEvents.id, id));
-    return event || void 0;
-  }
-  async createScanEvent(data) {
-    const [event] = await db.insert(scanEvents).values(data).returning();
-    return event;
-  }
-  // ============================================================================
-  // ACTIVITY LOGS
-  // ============================================================================
   async getActivityLogs(filters) {
     const conditions = [];
     if (filters?.userId) {
-      conditions.push((0, import_drizzle_orm2.eq)(activityLogs.userId, filters.userId));
+      conditions.push(eq(activityLogs.userId, filters.userId));
     }
     if (filters?.containerId) {
-      conditions.push((0, import_drizzle_orm2.eq)(activityLogs.containerId, filters.containerId));
+      conditions.push(eq(activityLogs.containerId, filters.containerId));
     }
-    if (filters?.type) {
-      conditions.push((0, import_drizzle_orm2.eq)(activityLogs.type, filters.type));
-    }
-    if (filters?.taskId) {
-      conditions.push((0, import_drizzle_orm2.eq)(activityLogs.taskId, filters.taskId));
+    if (filters?.action) {
+      conditions.push(eq(activityLogs.action, filters.action));
     }
     if (conditions.length > 0) {
-      return db.select().from(activityLogs).where((0, import_drizzle_orm2.and)(...conditions)).orderBy((0, import_drizzle_orm2.desc)(activityLogs.timestamp));
+      return db.select().from(activityLogs).where(and(...conditions)).orderBy(desc(activityLogs.createdAt));
     }
-    return db.select().from(activityLogs).orderBy((0, import_drizzle_orm2.desc)(activityLogs.timestamp));
+    return db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt));
   }
   async createActivityLog(data) {
-    const logData = {
-      ...data,
-      action: data.action || data.type
-    };
-    const [log2] = await db.insert(activityLogs).values(logData).returning();
+    const [log2] = await db.insert(activityLogs).values(data).returning();
     return log2;
   }
-  // ============================================================================
-  // FILL HISTORY
-  // ============================================================================
   async getFillHistory(warehouseContainerId) {
-    return db.select().from(fillHistory).where((0, import_drizzle_orm2.eq)(fillHistory.warehouseContainerId, warehouseContainerId)).orderBy((0, import_drizzle_orm2.desc)(fillHistory.createdAt));
+    return db.select().from(fillHistory).where(eq(fillHistory.warehouseContainerId, warehouseContainerId)).orderBy(desc(fillHistory.createdAt));
   }
   async createFillHistory(data) {
     const [history] = await db.insert(fillHistory).values(data).returning();
@@ -809,101 +300,65 @@ var DatabaseStorage = class {
 var storage = new DatabaseStorage();
 
 // server/routes.ts
-var import_crypto = require("crypto");
+import { createHash } from "crypto";
 function hashPassword(password) {
-  return (0, import_crypto.createHash)("sha256").update(password).digest("hex");
-}
-async function requireAuth(req, res, next) {
-  const userId = req.headers["x-user-id"] || req.body?.userId;
-  if (!userId) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  const user = await storage.getUser(userId);
-  if (!user) {
-    return res.status(401).json({ error: "Invalid user" });
-  }
-  if (!user.isActive) {
-    return res.status(403).json({ error: "Account is deactivated" });
-  }
-  req.authUser = user;
-  next();
-}
-function requireAdmin(req, res, next) {
-  const user = req.authUser;
-  if (!user) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  const role = user.role?.toUpperCase();
-  if (role !== "ADMIN") {
-    return res.status(403).json({ error: "Admin access required" });
-  }
-  next();
-}
-function normalizeUserRole(user) {
-  return {
-    ...user,
-    role: user.role?.toLowerCase() || "driver"
-  };
-}
-function prepareUserResponse(user) {
-  const { password, ...userWithoutPassword } = user;
-  return normalizeUserRole(userWithoutPassword);
+  return createHash("sha256").update(password).digest("hex");
 }
 async function registerRoutes(app2) {
   app2.head("/api/health", (req, res) => {
     res.status(200).end();
   });
-  app2.get("/api/health", async (req, res) => {
-    try {
-      const dbHealth = await checkDatabaseHealth();
-      if (dbHealth.connected) {
-        res.status(200).json({
-          status: "ok",
-          database: "connected",
-          timestamp: (/* @__PURE__ */ new Date()).toISOString()
-        });
-      } else {
-        res.status(503).json({
-          status: "degraded",
-          database: "disconnected",
-          error: dbHealth.error,
-          timestamp: (/* @__PURE__ */ new Date()).toISOString()
-        });
-      }
-    } catch (error) {
-      res.status(500).json({
-        status: "error",
-        database: "unknown",
-        error: error instanceof Error ? error.message : "Health check failed",
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+  app2.get("/api/health", (req, res) => {
+    res.status(200).json({ status: "ok", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+  });
+  app2.get("/api/auth/replit", (req, res) => {
+    const userId = req.headers["x-replit-user-id"];
+    const userName = req.headers["x-replit-user-name"];
+    const userRoles = req.headers["x-replit-user-roles"];
+    if (!userId || !userName) {
+      return res.status(401).json({
+        error: "Not authenticated with Replit",
+        authenticated: false
       });
     }
+    res.json({
+      authenticated: true,
+      replitUser: {
+        id: userId,
+        name: userName,
+        roles: userRoles ? userRoles.split(",") : []
+      }
+    });
   });
-  app2.get("/api/db-test", async (req, res) => {
+  app2.post("/api/auth/replit/login", async (req, res) => {
     try {
-      const result = await runDbTest();
-      if (result.success) {
-        res.json({
-          status: "ok",
-          dbTime: result.timestamp,
-          pool: getPoolStats()
-        });
-      } else {
-        res.status(503).json({
-          status: "error",
-          error: result.error,
-          pool: getPoolStats()
+      const userId = req.headers["x-replit-user-id"];
+      const userName = req.headers["x-replit-user-name"];
+      if (!userId || !userName) {
+        return res.status(401).json({ error: "Not authenticated with Replit" });
+      }
+      const replitId = `replit-${userId}`;
+      const replitEmail = `${userName}@replit.user`;
+      let user = await storage.getUserByEmail(replitEmail);
+      if (!user) {
+        const existingUsers = await storage.getUsers();
+        const isFirstUser = existingUsers.length === 0;
+        user = await storage.createUser({
+          email: replitEmail,
+          password: hashPassword(`replit-${userId}-${Date.now()}`),
+          name: userName,
+          role: isFirstUser ? "admin" : "driver"
         });
       }
+      if (!user.isActive) {
+        return res.status(403).json({ error: "Account is deactivated" });
+      }
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ user: userWithoutPassword });
     } catch (error) {
-      res.status(500).json({
-        status: "error",
-        error: error instanceof Error ? error.message : "DB test failed"
-      });
+      console.error("Replit auth error:", error);
+      res.status(500).json({ error: "Replit login failed" });
     }
-  });
-  app2.get("/api/pool-stats", (req, res) => {
-    res.json(getPoolStats());
   });
   app2.post("/api/auth/login", async (req, res) => {
     try {
@@ -922,7 +377,8 @@ async function registerRoutes(app2) {
       if (!user.isActive) {
         return res.status(403).json({ error: "Account is deactivated" });
       }
-      res.json({ user: prepareUserResponse(user) });
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ user: userWithoutPassword });
     } catch (error) {
       res.status(500).json({ error: "Login failed" });
     }
@@ -930,7 +386,7 @@ async function registerRoutes(app2) {
   app2.get("/api/users", async (req, res) => {
     try {
       const users2 = await storage.getUsers();
-      const usersWithoutPasswords = users2.map((user) => prepareUserResponse(user));
+      const usersWithoutPasswords = users2.map(({ password, ...user }) => user);
       res.json(usersWithoutPasswords);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch users" });
@@ -942,12 +398,13 @@ async function registerRoutes(app2) {
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      res.json(prepareUserResponse(user));
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user" });
     }
   });
-  app2.post("/api/users", requireAuth, requireAdmin, async (req, res) => {
+  app2.post("/api/users", async (req, res) => {
     try {
       const { email, password, name, role } = req.body;
       if (!email || !password || !name) {
@@ -964,7 +421,8 @@ async function registerRoutes(app2) {
         name,
         role: role || "driver"
       });
-      res.status(201).json(prepareUserResponse(user));
+      const { password: _, ...userWithoutPassword } = user;
+      res.status(201).json(userWithoutPassword);
     } catch (error) {
       res.status(500).json({ error: "Failed to create user" });
     }
@@ -975,59 +433,10 @@ async function registerRoutes(app2) {
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      res.json(prepareUserResponse(user));
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
     } catch (error) {
       res.status(500).json({ error: "Failed to update user" });
-    }
-  });
-  app2.get("/api/customers", async (req, res) => {
-    try {
-      const customerList = await storage.getCustomers();
-      res.json(customerList);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch customers" });
-    }
-  });
-  app2.get("/api/customers/:id", async (req, res) => {
-    try {
-      const customer = await storage.getCustomer(req.params.id);
-      if (!customer) {
-        return res.status(404).json({ error: "Customer not found" });
-      }
-      res.json(customer);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch customer" });
-    }
-  });
-  app2.post("/api/customers", requireAuth, requireAdmin, async (req, res) => {
-    try {
-      const { name, address, contactName, contactPhone, contactEmail, notes } = req.body;
-      if (!name) {
-        return res.status(400).json({ error: "Customer name is required" });
-      }
-      const customer = await storage.createCustomer({
-        name,
-        address: address || null,
-        contactName: contactName || null,
-        contactPhone: contactPhone || null,
-        contactEmail: contactEmail || null,
-        notes: notes || null,
-        isActive: true
-      });
-      res.status(201).json(customer);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to create customer" });
-    }
-  });
-  app2.patch("/api/customers/:id", async (req, res) => {
-    try {
-      const customer = await storage.updateCustomer(req.params.id, req.body);
-      if (!customer) {
-        return res.status(404).json({ error: "Customer not found" });
-      }
-      res.json(customer);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to update customer" });
     }
   });
   app2.get("/api/containers/customer", async (req, res) => {
@@ -1051,10 +460,7 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/containers/customer/qr/:qrCode", async (req, res) => {
     try {
-      let container = await storage.getCustomerContainerByQR(req.params.qrCode);
-      if (!container) {
-        container = await storage.getCustomerContainer(req.params.qrCode);
-      }
+      const container = await storage.getCustomerContainerByQR(req.params.qrCode);
       if (!container) {
         return res.status(404).json({ error: "Container not found" });
       }
@@ -1063,69 +469,23 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to fetch container" });
     }
   });
-  app2.post("/api/containers/customer", requireAuth, requireAdmin, async (req, res) => {
+  app2.post("/api/containers/customer", async (req, res) => {
     try {
-      const { id, ...rest } = req.body;
-      if (!id) {
-        return res.status(400).json({ error: "Container ID is required" });
-      }
-      const stableQrCode = `customer-${id}`;
-      const container = await storage.createCustomerContainer({
-        id,
-        ...rest,
-        qrCode: stableQrCode
-        // Always use stable QR code
-      });
+      const container = await storage.createCustomerContainer(req.body);
       res.status(201).json(container);
     } catch (error) {
-      console.error("Error creating customer container:", error);
       res.status(500).json({ error: "Failed to create container" });
     }
   });
   app2.patch("/api/containers/customer/:id", async (req, res) => {
     try {
-      const { qrCode, ...updateData } = req.body;
-      const container = await storage.updateCustomerContainer(req.params.id, updateData);
+      const container = await storage.updateCustomerContainer(req.params.id, req.body);
       if (!container) {
         return res.status(404).json({ error: "Container not found" });
       }
       res.json(container);
     } catch (error) {
       res.status(500).json({ error: "Failed to update container" });
-    }
-  });
-  app2.post("/api/containers/customer/:id/regenerate-qr", requireAuth, requireAdmin, async (req, res) => {
-    try {
-      const { userId } = req.body;
-      const existingContainer = await storage.getCustomerContainer(req.params.id);
-      if (!existingContainer) {
-        return res.status(404).json({ error: "Container not found" });
-      }
-      const oldQrCode = existingContainer.qrCode;
-      const newQrCode = `customer-${req.params.id}-${Date.now()}`;
-      const container = await storage.updateCustomerContainer(req.params.id, {
-        qrCode: newQrCode
-      });
-      if (!container) {
-        return res.status(500).json({ error: "Failed to regenerate QR code" });
-      }
-      await storage.createActivityLog({
-        type: "SYSTEM_EVENT",
-        action: "SYSTEM_EVENT",
-        message: `QR-Code f\xFCr Container ${req.params.id} wurde neu generiert. Bitte neuen Code ausdrucken und am Container anbringen.`,
-        userId: userId || null,
-        taskId: null,
-        containerId: req.params.id,
-        scanEventId: null,
-        location: null,
-        timestamp: /* @__PURE__ */ new Date(),
-        details: `Alter QR-Code: ${oldQrCode}`,
-        metadata: { oldQrCode, newQrCode, action: "QR_CODE_REGENERATED" }
-      });
-      res.json(container);
-    } catch (error) {
-      console.error("Error regenerating QR code:", error);
-      res.status(500).json({ error: "Failed to regenerate QR code" });
     }
   });
   app2.get("/api/containers/warehouse", async (req, res) => {
@@ -1149,10 +509,7 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/containers/warehouse/qr/:qrCode", async (req, res) => {
     try {
-      let container = await storage.getWarehouseContainerByQR(req.params.qrCode);
-      if (!container) {
-        container = await storage.getWarehouseContainer(req.params.qrCode);
-      }
+      const container = await storage.getWarehouseContainerByQR(req.params.qrCode);
       if (!container) {
         return res.status(404).json({ error: "Container not found" });
       }
@@ -1161,126 +518,23 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to fetch container" });
     }
   });
-  app2.post("/api/containers/warehouse", requireAuth, requireAdmin, async (req, res) => {
+  app2.post("/api/containers/warehouse", async (req, res) => {
     try {
-      const { id, ...rest } = req.body;
-      if (!id) {
-        return res.status(400).json({ error: "Container ID is required" });
-      }
-      const stableQrCode = `warehouse-${id}`;
-      const container = await storage.createWarehouseContainer({
-        id,
-        ...rest,
-        qrCode: stableQrCode
-        // Always use stable QR code
-      });
+      const container = await storage.createWarehouseContainer(req.body);
       res.status(201).json(container);
     } catch (error) {
-      console.error("Error creating warehouse container:", error);
       res.status(500).json({ error: "Failed to create container" });
     }
   });
   app2.patch("/api/containers/warehouse/:id", async (req, res) => {
     try {
-      const { qrCode, ...updateData } = req.body;
-      const container = await storage.updateWarehouseContainer(req.params.id, updateData);
+      const container = await storage.updateWarehouseContainer(req.params.id, req.body);
       if (!container) {
         return res.status(404).json({ error: "Container not found" });
       }
       res.json(container);
     } catch (error) {
-      console.error("Error updating warehouse container:", error);
-      res.status(500).json({ error: "Failed to update container", details: String(error) });
-    }
-  });
-  app2.post("/api/containers/warehouse/:id/regenerate-qr", requireAuth, requireAdmin, async (req, res) => {
-    try {
-      const { userId } = req.body;
-      const existingContainer = await storage.getWarehouseContainer(req.params.id);
-      if (!existingContainer) {
-        return res.status(404).json({ error: "Container not found" });
-      }
-      const oldQrCode = existingContainer.qrCode;
-      const newQrCode = `warehouse-${req.params.id}-${Date.now()}`;
-      const container = await storage.updateWarehouseContainer(req.params.id, {
-        qrCode: newQrCode
-      });
-      if (!container) {
-        return res.status(500).json({ error: "Failed to regenerate QR code" });
-      }
-      await storage.createActivityLog({
-        type: "SYSTEM_EVENT",
-        action: "SYSTEM_EVENT",
-        message: `QR-Code f\xFCr Container ${req.params.id} wurde neu generiert. Bitte neuen Code ausdrucken und am Container anbringen.`,
-        userId: userId || null,
-        taskId: null,
-        containerId: req.params.id,
-        scanEventId: null,
-        location: null,
-        timestamp: /* @__PURE__ */ new Date(),
-        details: `Alter QR-Code: ${oldQrCode}`,
-        metadata: { oldQrCode, newQrCode, action: "QR_CODE_REGENERATED" }
-      });
-      res.json(container);
-    } catch (error) {
-      console.error("Error regenerating QR code:", error);
-      res.status(500).json({ error: "Failed to regenerate QR code" });
-    }
-  });
-  app2.post("/api/containers/warehouse/:id/reset", requireAuth, async (req, res) => {
-    try {
-      const { reason } = req.body;
-      const authUser = req.authUser;
-      const userRole = authUser?.role?.toLowerCase();
-      if (!authUser || userRole !== "admin" && userRole !== "driver") {
-        return res.status(403).json({ error: "Only admin or driver roles can empty containers" });
-      }
-      const existingContainer = await storage.getWarehouseContainer(req.params.id);
-      if (!existingContainer) {
-        return res.status(404).json({ error: "Container not found" });
-      }
-      if (existingContainer.currentAmount === 0) {
-        return res.json({
-          message: "Container is already empty",
-          container: existingContainer
-        });
-      }
-      const previousAmount = existingContainer.currentAmount;
-      const container = await storage.updateWarehouseContainer(req.params.id, {
-        currentAmount: 0,
-        lastEmptied: /* @__PURE__ */ new Date()
-      });
-      if (!container) {
-        return res.status(500).json({ error: "Failed to reset container" });
-      }
-      await storage.createFillHistory({
-        warehouseContainerId: req.params.id,
-        amountAdded: -previousAmount,
-        quantityUnit: existingContainer.quantityUnit,
-        taskId: null,
-        recordedByUserId: authUser?.id || null
-      });
-      const roleLabel = userRole === "admin" ? "Admin" : "Fahrer";
-      await storage.createActivityLog({
-        type: "CONTAINER_STATUS_CHANGED",
-        action: "CONTAINER_STATUS_CHANGED",
-        message: `Lagercontainer ${req.params.id} wurde von ${roleLabel} ${authUser?.name || "Unbekannt"} geleert (${previousAmount} ${existingContainer.quantityUnit} entfernt)`,
-        userId: authUser?.id || null,
-        taskId: null,
-        containerId: req.params.id,
-        scanEventId: null,
-        location: null,
-        timestamp: /* @__PURE__ */ new Date(),
-        details: reason || null,
-        metadata: { previousAmount, reason, action: "CONTAINER_EMPTIED", role: authUser.role }
-      });
-      res.json({
-        message: "Container successfully emptied",
-        container
-      });
-    } catch (error) {
-      console.error("Error resetting warehouse container:", error);
-      res.status(500).json({ error: "Failed to reset container" });
+      res.status(500).json({ error: "Failed to update container" });
     }
   });
   app2.get("/api/containers/warehouse/:id/history", async (req, res) => {
@@ -1293,35 +547,12 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/tasks", async (req, res) => {
     try {
-      const { assignedTo, status, date, showAll } = req.query;
-      const userId = req.headers["x-user-id"] || req.query.userId;
-      let userRole = "DRIVER";
-      if (userId) {
-        const user = await storage.getUser(userId);
-        if (user) {
-          userRole = user.role?.toUpperCase() || "DRIVER";
-        }
-      }
+      const { assignedTo, status, date } = req.query;
       const filters = {};
-      if (userRole === "ADMIN") {
-        if (assignedTo) filters.assignedTo = assignedTo;
-        if (status) {
-          filters.status = status;
-        }
-      } else {
-        if (userId) {
-          filters.assignedTo = userId;
-        } else if (assignedTo) {
-          filters.assignedTo = assignedTo;
-        }
-        if (status) filters.status = status;
-      }
+      if (assignedTo) filters.assignedTo = assignedTo;
+      if (status) filters.status = status;
       if (date) filters.date = new Date(date);
-      let taskList = await storage.getTasks(Object.keys(filters).length > 0 ? filters : void 0);
-      if (userRole === "ADMIN" && !status && showAll !== "true") {
-        const FINAL_STATUSES = ["COMPLETED", "CANCELLED"];
-        taskList = taskList.filter((t) => !FINAL_STATUSES.includes(t.status));
-      }
+      const taskList = await storage.getTasks(Object.keys(filters).length > 0 ? filters : void 0);
       res.json(taskList);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch tasks" });
@@ -1338,73 +569,12 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to fetch task" });
     }
   });
-  app2.post("/api/tasks", requireAuth, requireAdmin, async (req, res) => {
+  app2.post("/api/tasks", async (req, res) => {
     try {
-      const taskData = {
-        ...req.body,
-        status: "OFFEN"
-        // Always start with OFFEN - never trust client status
-      };
-      if (taskData.scheduledTime) {
-        const parsedDate = new Date(taskData.scheduledTime);
-        if (isNaN(parsedDate.getTime())) {
-          return res.status(400).json({ error: "Invalid scheduledTime format" });
-        }
-        taskData.scheduledTime = parsedDate;
-      }
-      const timestampFields = [
-        "assignedAt",
-        "acceptedAt",
-        "pickedUpAt",
-        "inTransitAt",
-        "deliveredAt",
-        "completedAt",
-        "cancelledAt",
-        "pickupTimestamp",
-        "deliveryTimestamp"
-      ];
-      for (const field of timestampFields) {
-        if (taskData[field]) {
-          const parsedDate = new Date(taskData[field]);
-          if (isNaN(parsedDate.getTime())) {
-            return res.status(400).json({ error: `Invalid ${field} format` });
-          }
-          taskData[field] = parsedDate;
-        }
-      }
-      if (taskData.deliveryContainerID && taskData.plannedQuantity) {
-        const targetContainer = await storage.getWarehouseContainer(taskData.deliveryContainerID);
-        if (!targetContainer) {
-          return res.status(400).json({ error: "Zielcontainer nicht gefunden" });
-        }
-        const remainingCapacity = targetContainer.maxCapacity - targetContainer.currentAmount;
-        if (taskData.plannedQuantity > remainingCapacity) {
-          return res.status(400).json({
-            error: "Zielcontainer hat nicht genug \xFCbriges Volumen f\xFCr diese Menge.",
-            remainingCapacity,
-            requestedAmount: taskData.plannedQuantity,
-            unit: targetContainer.quantityUnit
-          });
-        }
-      }
-      const task = await storage.createTask(taskData);
-      await storage.createActivityLog({
-        type: "TASK_CREATED",
-        action: "TASK_CREATED",
-        message: `Auftrag erstellt f\xFCr Container ${task.containerID}`,
-        userId: req.body.createdBy || null,
-        taskId: task.id,
-        containerId: task.containerID,
-        timestamp: /* @__PURE__ */ new Date(),
-        details: null,
-        metadata: null,
-        location: null,
-        scanEventId: null
-      });
+      const task = await storage.createTask(req.body);
       res.status(201).json(task);
     } catch (error) {
-      console.error("Failed to create task:", error);
-      res.status(500).json({ error: "Failed to create task", details: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({ error: "Failed to create task" });
     }
   });
   app2.patch("/api/tasks/:id", async (req, res) => {
@@ -1418,425 +588,74 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to update task" });
     }
   });
-  app2.delete("/api/tasks/:id", requireAuth, requireAdmin, async (req, res) => {
-    try {
-      const authUser = req.authUser;
-      const taskId = req.params.id;
-      const task = await storage.getTask(taskId);
-      if (!task) {
-        return res.status(404).json({ error: "Auftrag nicht gefunden" });
-      }
-      const deleted = await storage.deleteTask(taskId);
-      if (!deleted) {
-        return res.status(500).json({ error: "Fehler beim L\xF6schen des Auftrags" });
-      }
-      await storage.createActivityLog({
-        type: "TASK_DELETED",
-        action: "TASK_DELETED",
-        message: `Auftrag ${taskId} wurde von Admin ${authUser?.name || "Unbekannt"} gel\xF6scht`,
-        userId: authUser?.id || null,
-        taskId: null,
-        // Task no longer exists
-        containerId: task.containerID,
-        scanEventId: null,
-        location: null,
-        timestamp: /* @__PURE__ */ new Date(),
-        details: `Status vor L\xF6schung: ${task.status}`,
-        metadata: {
-          deletedTaskId: taskId,
-          taskStatus: task.status,
-          containerId: task.containerID,
-          assignedTo: task.assignedTo
-        }
-      });
-      res.json({ message: "Auftrag erfolgreich gel\xF6scht" });
-    } catch (error) {
-      console.error("Failed to delete task:", error);
-      res.status(500).json({ error: "Fehler beim L\xF6schen des Auftrags" });
-    }
-  });
-  app2.post("/api/tasks/:id/assign", async (req, res) => {
-    try {
-      const { userId, assignedBy } = req.body;
-      const task = await storage.getTask(req.params.id);
-      if (!task) {
-        return res.status(404).json({ error: "Task not found" });
-      }
-      const updatedTask = await storage.updateTaskStatus(req.params.id, "ASSIGNED", userId);
-      if (!updatedTask) {
-        return res.status(400).json({ error: "Invalid status transition" });
-      }
-      const driver = await storage.getUser(userId);
-      const driverName = driver?.name || "Unbekannt";
-      await storage.createActivityLog({
-        type: "TASK_ASSIGNED",
-        action: "TASK_ASSIGNED",
-        message: `Auftrag ${task.id} wurde Fahrer ${driverName} zugewiesen`,
-        userId: assignedBy || null,
-        taskId: task.id,
-        containerId: task.containerID,
-        timestamp: /* @__PURE__ */ new Date(),
-        details: null,
-        metadata: null,
-        location: null,
-        scanEventId: null
-      });
-      res.json(updatedTask);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to assign task" });
-    }
-  });
-  app2.post("/api/tasks/:id/accept", async (req, res) => {
-    try {
-      const { userId, location, geoLocation } = req.body;
-      const task = await storage.getTask(req.params.id);
-      if (!task) {
-        return res.status(404).json({ error: "Task not found" });
-      }
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(401).json({ error: "Benutzer nicht gefunden" });
-      }
-      const userRole = user.role?.toUpperCase() || "DRIVER";
-      const isAdmin = userRole === "ADMIN";
-      const isAssignedDriver = task.assignedTo === userId;
-      if (!isAdmin && !isAssignedDriver && task.assignedTo) {
-        return res.status(403).json({
-          error: "Nur der zugewiesene Fahrer oder ein Admin kann diesen Auftrag annehmen.",
-          assignedTo: task.assignedTo
-        });
-      }
-      const LATER_STATES = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED", "COMPLETED"];
-      if (LATER_STATES.includes(task.status)) {
-        const sourceContainer2 = await storage.getCustomerContainer(task.containerID);
-        let targetContainer2 = null;
-        if (task.deliveryContainerID) {
-          targetContainer2 = await storage.getWarehouseContainer(task.deliveryContainerID);
-        }
-        const response2 = {
-          task,
-          alreadyAccepted: true,
-          sourceContainer: sourceContainer2 ? {
-            id: sourceContainer2.id,
-            label: sourceContainer2.id,
-            location: sourceContainer2.location,
-            content: sourceContainer2.materialType,
-            materialType: sourceContainer2.materialType,
-            customerName: sourceContainer2.customerName,
-            unit: task.plannedQuantityUnit || "kg",
-            currentQuantity: task.estimatedAmount || 0,
-            plannedPickupQuantity: task.plannedQuantity || task.estimatedAmount || 0
-          } : null
-        };
-        if (targetContainer2) {
-          response2.targetContainer = {
-            id: targetContainer2.id,
-            label: targetContainer2.id,
-            location: targetContainer2.location,
-            content: targetContainer2.materialType,
-            materialType: targetContainer2.materialType,
-            capacity: targetContainer2.maxCapacity,
-            currentFill: targetContainer2.currentAmount,
-            remainingCapacity: targetContainer2.maxCapacity - targetContainer2.currentAmount,
-            unit: targetContainer2.quantityUnit
-          };
-        }
-        return res.json(response2);
-      }
-      const sourceContainer = await storage.getCustomerContainer(task.containerID);
-      if (!sourceContainer) {
-        return res.status(404).json({ error: "Kundencontainer nicht gefunden" });
-      }
-      let targetContainer = null;
-      if (task.deliveryContainerID) {
-        targetContainer = await storage.getWarehouseContainer(task.deliveryContainerID);
-        if (targetContainer) {
-          if (sourceContainer.materialType !== targetContainer.materialType) {
-            return res.status(400).json({
-              error: "Der Zielcontainer enth\xE4lt ein anderes Material. Bitte w\xE4hle einen passenden Lagercontainer.",
-              sourceMaterial: sourceContainer.materialType,
-              targetMaterial: targetContainer.materialType
-            });
-          }
-          const remainingCapacity = targetContainer.maxCapacity - targetContainer.currentAmount;
-          if (task.plannedQuantity && task.plannedQuantity > remainingCapacity) {
-            return res.status(400).json({
-              error: "Zielcontainer hat nicht genug \xFCbriges Volumen f\xFCr diese Menge.",
-              remainingCapacity,
-              requestedAmount: task.plannedQuantity,
-              unit: targetContainer.quantityUnit
-            });
-          }
-        }
-      }
-      const updatedTask = await storage.updateTaskStatus(req.params.id, "ACCEPTED", userId);
-      if (!updatedTask) {
-        return res.status(400).json({ error: "Ung\xFCltiger Status-\xDCbergang. Aktueller Status: " + task.status });
-      }
-      await storage.updateTask(req.params.id, {
-        pickupLocation: location
-      });
-      const scanEvent = await storage.createScanEvent({
-        containerId: task.containerID,
-        containerType: "customer",
-        taskId: task.id,
-        scannedByUserId: userId,
-        scannedAt: /* @__PURE__ */ new Date(),
-        scanContext: "TASK_ACCEPT_AT_CUSTOMER",
-        locationType: "CUSTOMER",
-        locationDetails: location,
-        geoLocation: geoLocation || null,
-        scanResult: "SUCCESS",
-        resultMessage: null,
-        extraData: null
-      });
-      const driver = await storage.getUser(userId);
-      const driverName = driver?.name || "Unbekannt";
-      await storage.createActivityLog({
-        type: "TASK_ACCEPTED",
-        action: "TASK_ACCEPTED",
-        message: `Fahrer ${driverName} hat Auftrag ${task.id} beim Kunden angenommen`,
-        userId,
-        taskId: task.id,
-        containerId: task.containerID,
-        scanEventId: scanEvent.id,
-        location: geoLocation || null,
-        timestamp: /* @__PURE__ */ new Date(),
-        details: null,
-        metadata: { autoAssigned: task.status === "PLANNED" }
-      });
-      const response = {
-        task: updatedTask,
-        sourceContainer: {
-          id: sourceContainer.id,
-          label: sourceContainer.id,
-          location: sourceContainer.location,
-          content: sourceContainer.materialType,
-          // content field maps to materialType
-          materialType: sourceContainer.materialType,
-          customerName: sourceContainer.customerName,
-          unit: updatedTask.plannedQuantityUnit || "kg",
-          currentQuantity: updatedTask.estimatedAmount || 0,
-          plannedPickupQuantity: updatedTask.plannedQuantity || updatedTask.estimatedAmount || 0
-        }
-      };
-      if (targetContainer) {
-        response.targetContainer = {
-          id: targetContainer.id,
-          label: targetContainer.id,
-          location: targetContainer.location,
-          content: targetContainer.materialType,
-          // content field maps to materialType
-          materialType: targetContainer.materialType,
-          capacity: targetContainer.maxCapacity,
-          currentFill: targetContainer.currentAmount,
-          remainingCapacity: targetContainer.maxCapacity - targetContainer.currentAmount,
-          unit: targetContainer.quantityUnit
-        };
-      }
-      res.json(response);
-    } catch (error) {
-      console.error("Failed to accept task:", error);
-      res.status(500).json({ error: "Fehler beim Annehmen des Auftrags" });
-    }
-  });
   app2.post("/api/tasks/:id/pickup", async (req, res) => {
     try {
-      const { userId, location, geoLocation } = req.body;
+      const { userId, location } = req.body;
       const task = await storage.getTask(req.params.id);
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
       }
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(401).json({ error: "Benutzer nicht gefunden" });
-      }
-      const userRole = user.role?.toUpperCase() || "DRIVER";
-      const isAdmin = userRole === "ADMIN";
-      const isAssignedDriver = task.assignedTo === userId;
-      if (!isAdmin && !isAssignedDriver) {
-        return res.status(403).json({
-          error: "Nur der zugewiesene Fahrer oder ein Admin kann diesen Auftrag abholen.",
-          assignedTo: task.assignedTo
-        });
-      }
-      const LATER_STATES = ["PICKED_UP", "IN_TRANSIT", "DELIVERED", "COMPLETED"];
-      if (LATER_STATES.includes(task.status)) {
-        return res.json({ ...task, alreadyPickedUp: true });
-      }
-      if (task.status !== "ACCEPTED") {
-        return res.status(400).json({
-          error: "Auftrag muss zuerst angenommen werden bevor er abgeholt werden kann",
-          currentStatus: task.status
-        });
-      }
-      const updatedTask = await storage.updateTaskStatus(req.params.id, "PICKED_UP", userId);
-      if (!updatedTask) {
-        return res.status(400).json({ error: "Ung\xFCltiger Status-\xDCbergang" });
-      }
-      const scanEvent = await storage.createScanEvent({
-        containerId: task.containerID,
-        containerType: "customer",
-        taskId: task.id,
-        scannedByUserId: userId,
-        scannedAt: /* @__PURE__ */ new Date(),
-        scanContext: "TASK_PICKUP",
-        locationType: "CUSTOMER",
-        locationDetails: location,
-        geoLocation: geoLocation || null,
-        scanResult: "SUCCESS",
-        resultMessage: null,
-        extraData: null
+      const updatedTask = await storage.updateTask(req.params.id, {
+        status: "in_progress",
+        pickupTimestamp: /* @__PURE__ */ new Date(),
+        pickupLocation: location
       });
-      const driver = await storage.getUser(userId);
-      const driverName = driver?.name || "Unbekannt";
       await storage.createActivityLog({
-        type: "TASK_PICKED_UP",
-        action: "TASK_PICKED_UP",
-        message: `Fahrer ${driverName} hat Container ${task.containerID} abgeholt`,
         userId,
+        action: "pickup",
         taskId: task.id,
         containerId: task.containerID,
-        scanEventId: scanEvent.id,
-        location: geoLocation || null,
-        timestamp: /* @__PURE__ */ new Date(),
-        details: null,
-        metadata: null
+        location,
+        details: `Picked up container ${task.containerID}`
       });
       res.json(updatedTask);
     } catch (error) {
-      console.error("Failed to pickup task:", error);
-      res.status(500).json({ error: "Fehler beim Abholen des Containers" });
+      res.status(500).json({ error: "Failed to record pickup" });
     }
   });
   app2.post("/api/tasks/:id/delivery", async (req, res) => {
     try {
-      const { userId, warehouseContainerId, amount, location, geoLocation } = req.body;
+      const { userId, warehouseContainerId, amount, location } = req.body;
       const task = await storage.getTask(req.params.id);
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
       }
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(401).json({ error: "Benutzer nicht gefunden" });
-      }
-      const userRole = user.role?.toUpperCase() || "DRIVER";
-      const isAdmin = userRole === "ADMIN";
-      const isAssignedDriver = task.assignedTo === userId;
-      if (!isAdmin && !isAssignedDriver) {
-        return res.status(403).json({
-          error: "Nur der zugewiesene Fahrer oder ein Admin kann diesen Auftrag abliefern.",
-          assignedTo: task.assignedTo
-        });
-      }
-      if (task.status === "COMPLETED") {
-        return res.json({ ...task, alreadyCompleted: true });
-      }
       const warehouseContainer = await storage.getWarehouseContainer(warehouseContainerId);
       if (!warehouseContainer) {
-        return res.status(404).json({ error: "Lagercontainer nicht gefunden" });
+        return res.status(404).json({ error: "Warehouse container not found" });
       }
       if (warehouseContainer.materialType !== task.materialType) {
-        return res.status(400).json({
-          error: "Der Zielcontainer enth\xE4lt ein anderes Material. Bitte w\xE4hle einen passenden Lagercontainer.",
-          sourceMaterial: task.materialType,
-          targetMaterial: warehouseContainer.materialType
-        });
+        return res.status(400).json({ error: "Material type mismatch" });
       }
-      const deliveredAmount = amount || task.plannedQuantity || task.estimatedAmount || 0;
       const availableSpace = warehouseContainer.maxCapacity - warehouseContainer.currentAmount;
-      if (deliveredAmount > availableSpace) {
-        return res.status(400).json({
-          error: "Zielcontainer hat nicht genug \xFCbriges Volumen f\xFCr diese Menge.",
-          remainingCapacity: availableSpace,
-          requestedAmount: deliveredAmount,
-          unit: warehouseContainer.quantityUnit
-        });
+      if (amount > availableSpace) {
+        return res.status(400).json({ error: "Insufficient capacity", availableSpace });
       }
-      let updatedTask = await storage.updateTaskStatus(req.params.id, "DELIVERED");
-      if (!updatedTask) {
-        return res.status(400).json({ error: "Ung\xFCltiger Status-\xDCbergang" });
-      }
-      await storage.updateTask(req.params.id, {
+      const updatedTask = await storage.updateTask(req.params.id, {
+        status: "completed",
+        deliveryTimestamp: /* @__PURE__ */ new Date(),
         deliveryContainerID: warehouseContainerId
       });
-      const scanEvent = await storage.createScanEvent({
-        containerId: warehouseContainerId,
-        containerType: "warehouse",
-        taskId: task.id,
-        scannedByUserId: userId,
-        scannedAt: /* @__PURE__ */ new Date(),
-        scanContext: "TASK_COMPLETE_AT_WAREHOUSE",
-        locationType: "WAREHOUSE",
-        locationDetails: warehouseContainer.warehouseZone || location,
-        geoLocation: geoLocation || null,
-        scanResult: "SUCCESS",
-        resultMessage: null,
-        extraData: null
-      });
-      await storage.createActivityLog({
-        type: "TASK_DELIVERED",
-        action: "TASK_DELIVERED",
-        message: `Container ${task.containerID} wurde im Lager abgeliefert`,
-        userId,
-        taskId: task.id,
-        containerId: warehouseContainerId,
-        scanEventId: scanEvent.id,
-        location: geoLocation || null,
-        timestamp: /* @__PURE__ */ new Date(),
-        details: null,
-        metadata: null
-      });
-      const newAmount = warehouseContainer.currentAmount + deliveredAmount;
       await storage.updateWarehouseContainer(warehouseContainerId, {
-        currentAmount: newAmount
+        currentAmount: warehouseContainer.currentAmount + amount
       });
       await storage.createFillHistory({
         warehouseContainerId,
-        amountAdded: deliveredAmount,
-        quantityUnit: warehouseContainer.quantityUnit,
-        taskId: task.id,
-        recordedByUserId: userId
+        amountAdded: amount,
+        taskId: task.id
       });
       await storage.updateCustomerContainer(task.containerID, {
-        lastEmptied: /* @__PURE__ */ new Date(),
-        status: "AT_CUSTOMER"
+        lastEmptied: /* @__PURE__ */ new Date()
       });
-      await storage.updateTask(req.params.id, {
-        actualQuantity: deliveredAmount
-      });
-      updatedTask = await storage.updateTaskStatus(req.params.id, "COMPLETED");
-      if (!updatedTask) {
-        return res.status(400).json({ error: "Fehler beim Abschlie\xDFen des Auftrags" });
-      }
       await storage.createActivityLog({
-        type: "TASK_COMPLETED",
-        action: "TASK_COMPLETED",
-        message: `Auftrag ${task.id} abgeschlossen, ${deliveredAmount} ${warehouseContainer.quantityUnit} erfasst`,
         userId,
+        action: "delivery",
         taskId: task.id,
         containerId: warehouseContainerId,
-        timestamp: /* @__PURE__ */ new Date(),
-        metadata: { amountAdded: deliveredAmount, unit: warehouseContainer.quantityUnit },
-        details: null,
-        location: null,
-        scanEventId: null
+        location,
+        details: `Delivered ${amount}kg to container ${warehouseContainerId}`
       });
-      res.json({
-        task: updatedTask,
-        targetContainer: {
-          id: warehouseContainerId,
-          label: warehouseContainerId,
-          location: warehouseContainer.location,
-          content: warehouseContainer.materialType,
-          materialType: warehouseContainer.materialType,
-          capacity: warehouseContainer.maxCapacity,
-          currentFill: newAmount,
-          remainingCapacity: warehouseContainer.maxCapacity - newAmount,
-          unit: warehouseContainer.quantityUnit,
-          amountAdded: deliveredAmount
-        }
-      });
+      res.json(updatedTask);
     } catch (error) {
       res.status(500).json({ error: "Failed to record delivery" });
     }
@@ -1848,102 +667,31 @@ async function registerRoutes(app2) {
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
       }
-      const updatedTask = await storage.updateTaskStatus(req.params.id, "CANCELLED");
-      if (!updatedTask) {
-        return res.status(400).json({ error: "Invalid status transition - task may already be completed" });
-      }
-      await storage.updateTask(req.params.id, {
+      const updatedTask = await storage.updateTask(req.params.id, {
+        status: "cancelled",
         cancellationReason: reason
       });
       await storage.createActivityLog({
-        type: "TASK_CANCELLED",
-        action: "TASK_CANCELLED",
-        message: `Auftrag ${task.id} wurde storniert: ${reason || "Kein Grund angegeben"}`,
         userId,
+        action: "cancelled",
         taskId: task.id,
         containerId: task.containerID,
-        timestamp: /* @__PURE__ */ new Date(),
-        metadata: { reason },
-        details: null,
-        location: null,
-        scanEventId: null
+        details: `Task cancelled: ${reason}`
       });
       res.json(updatedTask);
     } catch (error) {
       res.status(500).json({ error: "Failed to cancel task" });
     }
   });
-  app2.get("/api/scan-events", async (req, res) => {
-    try {
-      const { containerId, taskId, userId } = req.query;
-      const filters = {};
-      if (containerId) filters.containerId = containerId;
-      if (taskId) filters.taskId = taskId;
-      if (userId) filters.userId = userId;
-      const events = await storage.getScanEvents(Object.keys(filters).length > 0 ? filters : void 0);
-      res.json(events);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch scan events" });
-    }
-  });
-  app2.get("/api/scan-events/:id", async (req, res) => {
-    try {
-      const event = await storage.getScanEvent(req.params.id);
-      if (!event) {
-        return res.status(404).json({ error: "Scan event not found" });
-      }
-      res.json(event);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch scan event" });
-    }
-  });
-  app2.post("/api/scan-events", async (req, res) => {
-    try {
-      const { containerId, containerType, userId, scanContext, locationType, locationDetails, geoLocation, taskId } = req.body;
-      if (!containerId || !containerType || !userId || !scanContext || !locationType) {
-        return res.status(400).json({ error: "Missing required fields" });
-      }
-      const scanEvent = await storage.createScanEvent({
-        containerId,
-        containerType,
-        taskId: taskId || null,
-        scannedByUserId: userId,
-        scannedAt: /* @__PURE__ */ new Date(),
-        scanContext,
-        locationType,
-        locationDetails: locationDetails || null,
-        geoLocation: geoLocation || null,
-        scanResult: "SUCCESS",
-        resultMessage: null,
-        extraData: null
-      });
-      const logType = locationType === "WAREHOUSE" ? "CONTAINER_SCANNED_AT_WAREHOUSE" : "CONTAINER_SCANNED_AT_CUSTOMER";
-      await storage.createActivityLog({
-        type: logType,
-        action: logType,
-        message: `Container ${containerId} wurde gescannt (${scanContext})`,
-        userId,
-        taskId: taskId || null,
-        containerId,
-        scanEventId: scanEvent.id,
-        location: geoLocation || null,
-        timestamp: /* @__PURE__ */ new Date(),
-        details: null,
-        metadata: null
-      });
-      res.status(201).json(scanEvent);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to create scan event" });
-    }
-  });
   app2.get("/api/activity-logs", async (req, res) => {
     try {
-      const { userId, containerId, type, taskId, startDate, endDate } = req.query;
+      const { userId, containerId, action, startDate, endDate } = req.query;
       const filters = {};
       if (userId) filters.userId = userId;
       if (containerId) filters.containerId = containerId;
-      if (type) filters.type = type;
-      if (taskId) filters.taskId = taskId;
+      if (action) filters.action = action;
+      if (startDate) filters.startDate = new Date(startDate);
+      if (endDate) filters.endDate = new Date(endDate);
       const logs = await storage.getActivityLogs(Object.keys(filters).length > 0 ? filters : void 0);
       res.json(logs);
     } catch (error) {
@@ -1952,35 +700,35 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/activity-logs/export/csv", async (req, res) => {
     try {
-      const { userId, containerId, type, taskId, startDate, endDate } = req.query;
+      const { userId, containerId, action, startDate, endDate } = req.query;
       const filters = {};
       if (userId) filters.userId = userId;
       if (containerId) filters.containerId = containerId;
-      if (type) filters.type = type;
-      if (taskId) filters.taskId = taskId;
+      if (action) filters.action = action;
+      if (startDate) filters.startDate = new Date(startDate);
+      if (endDate) filters.endDate = new Date(endDate);
       const logs = await storage.getActivityLogs(Object.keys(filters).length > 0 ? filters : void 0);
       const users2 = await storage.getUsers();
       const getUserName = (id) => {
-        if (!id) return "System";
         const user = users2.find((u) => u.id === id);
         return user?.name || "Unknown";
       };
-      const csvHeader = "ID,Datum,Uhrzeit,Benutzer,Typ,Nachricht,Container ID,Auftrag ID\n";
+      const csvHeader = "ID,Date,Time,Driver,Action,Container ID,Task ID,Details\n";
       const csvRows = logs.map((log2) => {
-        const date = new Date(log2.timestamp);
-        const dateStr = date.toLocaleDateString("de-DE");
-        const timeStr = date.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-        const userName = getUserName(log2.userId).replace(/,/g, ";");
-        const logType = (log2.type || "").replace(/,/g, ";");
-        const message = (log2.message || "").replace(/,/g, ";").replace(/\n/g, " ");
-        const containerId2 = (log2.containerId || "").replace(/,/g, ";");
-        const taskIdVal = (log2.taskId || "").replace(/,/g, ";");
-        return `${log2.id},${dateStr},${timeStr},${userName},${logType},${message},${containerId2},${taskIdVal}`;
+        const date = new Date(log2.createdAt);
+        const dateStr = date.toLocaleDateString("en-US");
+        const timeStr = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+        const driverName = getUserName(log2.userId).replace(/,/g, ";");
+        const action2 = log2.action.replace(/,/g, ";");
+        const containerId2 = log2.containerId?.replace(/,/g, ";") || "";
+        const taskId = log2.taskId?.replace(/,/g, ";") || "";
+        const details = log2.details?.replace(/,/g, ";").replace(/\n/g, " ") || "";
+        return `${log2.id},${dateStr},${timeStr},${driverName},${action2},${containerId2},${taskId},${details}`;
       }).join("\n");
       const csv = csvHeader + csvRows;
-      res.setHeader("Content-Type", "text/csv; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename=aktivitaetslog-${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}.csv`);
-      res.send("\uFEFF" + csv);
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=activity-log-${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}.csv`);
+      res.send(csv);
     } catch (error) {
       res.status(500).json({ error: "Failed to export activity logs" });
     }
@@ -1989,31 +737,30 @@ async function registerRoutes(app2) {
     try {
       const allTasks = await storage.getTasks();
       const users2 = await storage.getUsers();
-      const drivers = users2.filter((u) => u.role === "driver" || u.role === "DRIVER");
+      const drivers = users2.filter((u) => u.role === "driver");
       const now = /* @__PURE__ */ new Date();
       const today = now.toDateString();
       const startOfWeek = new Date(now);
       startOfWeek.setDate(now.getDate() - 7);
       const driverStats = drivers.map((driver) => {
         const driverTasks = allTasks.filter((t) => t.assignedTo === driver.id);
-        const completedTasks = driverTasks.filter((t) => t.status === "COMPLETED" || t.status === "completed");
+        const completedTasks = driverTasks.filter((t) => t.status === "completed");
         const completedToday = completedTasks.filter((t) => {
-          if (!t.completedAt) return false;
-          return new Date(t.completedAt).toDateString() === today;
+          if (!t.deliveryTimestamp) return false;
+          return new Date(t.deliveryTimestamp).toDateString() === today;
         });
         const completedThisWeek = completedTasks.filter((t) => {
-          if (!t.completedAt) return false;
-          const completedDate = new Date(t.completedAt);
-          return completedDate >= startOfWeek;
+          if (!t.deliveryTimestamp) return false;
+          const deliveryDate = new Date(t.deliveryTimestamp);
+          return deliveryDate >= startOfWeek;
         });
         const avgDeliveryTime = completedTasks.length > 0 ? completedTasks.reduce((sum, t) => {
-          if (t.acceptedAt && t.completedAt) {
-            return sum + (new Date(t.completedAt).getTime() - new Date(t.acceptedAt).getTime());
+          if (t.pickupTimestamp && t.deliveryTimestamp) {
+            return sum + (new Date(t.deliveryTimestamp).getTime() - new Date(t.pickupTimestamp).getTime());
           }
           return sum;
         }, 0) / completedTasks.length / (1e3 * 60) : 0;
         const completionRate = driverTasks.length > 0 ? Math.round(completedTasks.length / driverTasks.length * 100) : 0;
-        const inProgressStatuses = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED", "in_progress"];
         return {
           id: driver.id,
           name: driver.name,
@@ -2022,7 +769,7 @@ async function registerRoutes(app2) {
           totalCompleted: completedTasks.length,
           completedToday: completedToday.length,
           completedThisWeek: completedThisWeek.length,
-          inProgress: driverTasks.filter((t) => inProgressStatuses.includes(t.status)).length,
+          inProgress: driverTasks.filter((t) => t.status === "in_progress").length,
           completionRate,
           avgDeliveryTimeMinutes: Math.round(avgDeliveryTime)
         };
@@ -2055,10 +802,10 @@ async function registerRoutes(app2) {
       const dailyData = [];
       for (let i = 6; i >= 0; i--) {
         const date = daysAgo(i);
-        const dateStr = date.toLocaleDateString("de-DE", { month: "short", day: "numeric" });
+        const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
         const dayTasks = allTasks.filter((t) => {
-          if (!t.completedAt) return false;
-          const taskDate = new Date(t.completedAt);
+          if (!t.deliveryTimestamp) return false;
+          const taskDate = new Date(t.deliveryTimestamp);
           return taskDate.toDateString() === date.toDateString();
         });
         const totalDelivered = dayTasks.reduce((sum, t) => {
@@ -2104,29 +851,21 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/dashboard/stats", async (req, res) => {
     try {
-      const { driverId } = req.query;
       const allTasks = await storage.getTasks();
       const warehouseContainers2 = await storage.getWarehouseContainers();
       const users2 = await storage.getUsers();
-      const tasksToCount = driverId ? allTasks.filter((t) => t.assignedTo === driverId) : allTasks;
       const today = /* @__PURE__ */ new Date();
       today.setHours(0, 0, 0, 0);
       const todayEnd = /* @__PURE__ */ new Date();
       todayEnd.setHours(23, 59, 59, 999);
-      const todayTasks = tasksToCount.filter((t) => {
+      const todayTasks = allTasks.filter((t) => {
         const created = new Date(t.createdAt);
         return created >= today && created <= todayEnd;
       });
-      const openStatuses = ["OFFEN", "PLANNED", "ASSIGNED"];
-      const inProgressStatuses = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
-      const completedStatuses = ["COMPLETED"];
-      const cancelledStatuses = ["CANCELLED"];
-      const openTasks = tasksToCount.filter((t) => openStatuses.includes(t.status)).length;
-      const inProgressTasks = tasksToCount.filter((t) => inProgressStatuses.includes(t.status)).length;
-      const completedTasks = tasksToCount.filter((t) => completedStatuses.includes(t.status)).length;
-      const completedToday = todayTasks.filter((t) => completedStatuses.includes(t.status)).length;
-      const cancelledTasks = tasksToCount.filter((t) => cancelledStatuses.includes(t.status)).length;
-      const activeDrivers = users2.filter((u) => (u.role === "driver" || u.role === "DRIVER") && u.isActive).length;
+      const openTasks = allTasks.filter((t) => t.status === "open").length;
+      const inProgressTasks = allTasks.filter((t) => t.status === "in_progress").length;
+      const completedToday = todayTasks.filter((t) => t.status === "completed").length;
+      const activeDrivers = users2.filter((u) => u.role === "driver" && u.isActive).length;
       const criticalContainers = warehouseContainers2.filter((c) => {
         const fillPercentage = c.currentAmount / c.maxCapacity * 100;
         return fillPercentage >= 80;
@@ -2137,129 +876,45 @@ async function registerRoutes(app2) {
       res.json({
         openTasks,
         inProgressTasks,
-        completedTasks,
         completedToday,
-        cancelledTasks,
         activeDrivers,
         criticalContainers,
         totalCapacity,
-        availableCapacity,
-        totalTasks: tasksToCount.length
+        availableCapacity
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch dashboard stats" });
     }
   });
-  app2.get("/api/drivers/:id/stats", async (req, res) => {
-    try {
-      const driverId = req.params.id;
-      const driver = await storage.getUser(driverId);
-      if (!driver) {
-        return res.status(404).json({ error: "Fahrer nicht gefunden" });
-      }
-      const allTasks = await storage.getTasks({ assignedTo: driverId });
-      const today = /* @__PURE__ */ new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayEnd = /* @__PURE__ */ new Date();
-      todayEnd.setHours(23, 59, 59, 999);
-      const todayTasks = allTasks.filter((t) => {
-        const created = new Date(t.createdAt);
-        return created >= today && created <= todayEnd;
-      });
-      const openStatuses = ["OFFEN", "PLANNED", "ASSIGNED"];
-      const inProgressStatuses = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
-      const completedStatuses = ["COMPLETED"];
-      const cancelledStatuses = ["CANCELLED"];
-      const openTasks = allTasks.filter((t) => openStatuses.includes(t.status)).length;
-      const inProgressTasks = allTasks.filter((t) => inProgressStatuses.includes(t.status)).length;
-      const completedTasks = allTasks.filter((t) => completedStatuses.includes(t.status)).length;
-      const completedToday = todayTasks.filter((t) => completedStatuses.includes(t.status)).length;
-      const cancelledTasks = allTasks.filter((t) => cancelledStatuses.includes(t.status)).length;
-      const activityLogs2 = await storage.getActivityLogs({ userId: driverId });
-      const lastActivity = activityLogs2.length > 0 ? activityLogs2[0].timestamp : null;
-      res.json({
-        driverId,
-        driverName: driver.name,
-        driverEmail: driver.email,
-        openTasks,
-        inProgressTasks,
-        completedTasks,
-        completedToday,
-        cancelledTasks,
-        totalTasks: allTasks.length,
-        lastActivity
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch driver stats" });
-    }
-  });
-  app2.get("/api/drivers/overview", requireAuth, requireAdmin, async (req, res) => {
-    try {
-      const users2 = await storage.getUsers();
-      const allTasks = await storage.getTasks();
-      const drivers = users2.filter((u) => u.role === "DRIVER" || u.role === "driver");
-      const openStatuses = ["OFFEN", "PLANNED", "ASSIGNED"];
-      const inProgressStatuses = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
-      const completedStatuses = ["COMPLETED"];
-      const cancelledStatuses = ["CANCELLED"];
-      const driverOverview = await Promise.all(drivers.map(async (driver) => {
-        const driverTasks = allTasks.filter((t) => t.assignedTo === driver.id);
-        const activityLogs2 = await storage.getActivityLogs({ userId: driver.id });
-        const lastActivity = activityLogs2.length > 0 ? activityLogs2[0].timestamp : null;
-        return {
-          id: driver.id,
-          name: driver.name,
-          email: driver.email,
-          phone: driver.phone,
-          isActive: driver.isActive,
-          openTasks: driverTasks.filter((t) => openStatuses.includes(t.status)).length,
-          inProgressTasks: driverTasks.filter((t) => inProgressStatuses.includes(t.status)).length,
-          completedTasks: driverTasks.filter((t) => completedStatuses.includes(t.status)).length,
-          cancelledTasks: driverTasks.filter((t) => cancelledStatuses.includes(t.status)).length,
-          totalTasks: driverTasks.length,
-          lastActivity
-        };
-      }));
-      res.json(driverOverview);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch driver overview" });
-    }
-  });
-  const httpServer = (0, import_node_http.createServer)(app2);
+  const httpServer = createServer(app2);
   return httpServer;
 }
 
 // server/index.ts
-var fs = __toESM(require("fs"));
-var path = __toESM(require("path"));
-var app = (0, import_express.default)();
+import * as fs from "fs";
+import * as path from "path";
+var app = express();
 var log = console.log;
 function setupCors(app2) {
   app2.use((req, res, next) => {
+    const origins = /* @__PURE__ */ new Set();
+    if (process.env.REPLIT_DEV_DOMAIN) {
+      origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+    }
+    if (process.env.REPLIT_DOMAINS) {
+      process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
+        origins.add(`https://${d.trim()}`);
+      });
+    }
     const origin = req.header("origin");
-    if (origin) {
-      const allowedPatterns = [
-        /^https?:\/\/localhost(:\d+)?$/,
-        /^https?:\/\/127\.0\.0\.1(:\d+)?$/
-      ];
-      const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
-      const isAllowed = allowedPatterns.some((pattern) => pattern.test(origin)) || allowedOrigins.some((allowed) => origin === allowed.trim());
-      if (isAllowed) {
-        res.header("Access-Control-Allow-Origin", origin);
-        res.header(
-          "Access-Control-Allow-Methods",
-          "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        );
-        res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-user-id");
-        res.header("Access-Control-Allow-Credentials", "true");
-      }
-    } else {
-      res.header("Access-Control-Allow-Origin", "*");
+    if (origin && origins.has(origin)) {
+      res.header("Access-Control-Allow-Origin", origin);
       res.header(
         "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        "GET, POST, PUT, DELETE, OPTIONS"
       );
-      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-user-id");
+      res.header("Access-Control-Allow-Headers", "Content-Type");
+      res.header("Access-Control-Allow-Credentials", "true");
     }
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);
@@ -2269,13 +924,13 @@ function setupCors(app2) {
 }
 function setupBodyParsing(app2) {
   app2.use(
-    import_express.default.json({
+    express.json({
       verify: (req, _res, buf) => {
         req.rawBody = buf;
       }
     })
   );
-  app2.use(import_express.default.urlencoded({ extended: false }));
+  app2.use(express.urlencoded({ extended: false }));
 }
 function setupRequestLogging(app2) {
   app2.use((req, res, next) => {
@@ -2377,8 +1032,8 @@ function configureExpoAndLanding(app2) {
     }
     next();
   });
-  app2.use("/assets", import_express.default.static(path.resolve(process.cwd(), "assets")));
-  app2.use(import_express.default.static(path.resolve(process.cwd(), "static-build")));
+  app2.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+  app2.use(express.static(path.resolve(process.cwd(), "static-build")));
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }
 function setupErrorHandler(app2) {
@@ -2391,12 +1046,6 @@ function setupErrorHandler(app2) {
   });
 }
 (async () => {
-  try {
-    const dbUrl = new URL(process.env.DATABASE_URL || "");
-    log(`Using PostgreSQL via DATABASE_URL (host: ${dbUrl.hostname})`);
-  } catch {
-    log(`Using PostgreSQL via DATABASE_URL`);
-  }
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);

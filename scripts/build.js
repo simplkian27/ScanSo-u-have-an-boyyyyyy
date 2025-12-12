@@ -29,25 +29,21 @@ function setupSignalHandlers() {
 }
 
 function getDeploymentUrl() {
-  // Check for explicit deployment URL environment variable
-  if (process.env.DEPLOYMENT_URL) {
-    const url = process.env.DEPLOYMENT_URL.startsWith("http")
-      ? process.env.DEPLOYMENT_URL
-      : `https://${process.env.DEPLOYMENT_URL}`;
-    console.log("Using DEPLOYMENT_URL:", url);
+  if (process.env.REPLIT_INTERNAL_APP_DOMAIN) {
+    const url = `https://${process.env.REPLIT_INTERNAL_APP_DOMAIN}`;
+    console.log("Using REPLIT_INTERNAL_APP_DOMAIN:", url);
     return url;
   }
 
-  // Check for API URL (common in Expo builds)
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    // Remove /api suffix if present
-    const url = process.env.EXPO_PUBLIC_API_URL.replace(/\/api$/, "");
-    console.log("Using EXPO_PUBLIC_API_URL:", url);
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    const url = `https://${process.env.REPLIT_DEV_DOMAIN}`;
+    console.log("Using REPLIT_DEV_DOMAIN:", url);
     return url;
   }
 
-  console.error("ERROR: DEPLOYMENT_URL environment variable not set");
-  console.error("Please set DEPLOYMENT_URL to your production domain (e.g., https://yourapp.com)");
+  console.error(
+    "ERROR: REPLIT_INTERNAL_APP_DOMAIN and REPLIT_DEV_DOMAIN not set",
+  );
   process.exit(1);
 }
 
