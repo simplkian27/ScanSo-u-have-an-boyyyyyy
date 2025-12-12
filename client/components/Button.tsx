@@ -1,17 +1,19 @@
 import React, { ReactNode } from "react";
-import { StyleSheet, Pressable, ViewStyle, StyleProp } from "react-native";
+import { StyleSheet, Pressable, ViewStyle, StyleProp, ActivityIndicator, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   WithSpringConfig,
 } from "react-native-reanimated";
+import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing, Typography, AnimationConfig, ButtonColors } from "@/constants/theme";
+import { BorderRadius, Spacing, Typography, AnimationConfig, ButtonColors, IndustrialDesign } from "@/constants/theme";
 
 type ButtonVariant = "primary" | "secondary" | "tertiary" | "danger";
+type IconPosition = "left" | "right";
 
 interface ButtonProps {
   onPress?: () => void;
@@ -20,6 +22,9 @@ interface ButtonProps {
   disabled?: boolean;
   variant?: ButtonVariant;
   size?: "default" | "small";
+  loading?: boolean;
+  icon?: keyof typeof Feather.glyphMap;
+  iconPosition?: IconPosition;
 }
 
 const springConfig: WithSpringConfig = {
@@ -38,22 +43,27 @@ export function Button({
   disabled = false,
   variant = "primary",
   size = "default",
+  loading = false,
+  icon,
+  iconPosition = "left",
 }: ButtonProps) {
   const { theme, isDark } = useTheme();
   const scale = useSharedValue(1);
+
+  const isDisabled = disabled || loading;
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
   const handlePressIn = () => {
-    if (!disabled) {
+    if (!isDisabled) {
       scale.value = withSpring(AnimationConfig.pressScale, springConfig);
     }
   };
 
   const handlePressOut = () => {
-    if (!disabled) {
+    if (!isDisabled) {
       scale.value = withSpring(1, springConfig);
     }
   };
@@ -110,33 +120,55 @@ export function Button({
 
   const buttonStyles = getButtonStyles();
   const textColor = getTextColor();
+  const iconSize = size === "small" ? 18 : IndustrialDesign.iconSize;
+
+  const renderIcon = () => {
+    if (!icon) return null;
+    return (
+      <Feather 
+        name={icon} 
+        size={iconSize} 
+        color={textColor} 
+        style={iconPosition === "left" ? styles.iconLeft : styles.iconRight} 
+      />
+    );
+  };
 
   return (
     <AnimatedPressable
-      onPress={disabled ? undefined : onPress}
+      onPress={isDisabled ? undefined : onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      disabled={disabled}
+      disabled={isDisabled}
       style={[
         styles.button,
         buttonStyles,
         {
-          opacity: disabled ? 0.5 : 1,
+          opacity: isDisabled ? 0.5 : 1,
         },
         style,
         animatedStyle,
       ]}
     >
-      <ThemedText
-        type={size === "small" ? "small" : "body"}
-        style={[
-          styles.buttonText,
-          size === "small" ? styles.buttonTextSmall : null,
-          { color: textColor },
-        ]}
-      >
-        {children}
-      </ThemedText>
+      {loading ? (
+        <ActivityIndicator size="small" color={textColor} />
+      ) : (
+        <View style={styles.content}>
+          {icon && iconPosition === "left" ? renderIcon() : null}
+          <ThemedText
+            type={size === "small" ? "small" : "body"}
+            numberOfLines={1}
+            style={[
+              styles.buttonText,
+              size === "small" ? styles.buttonTextSmall : null,
+              { color: textColor },
+            ]}
+          >
+            {children}
+          </ThemedText>
+          {icon && iconPosition === "right" ? renderIcon() : null}
+        </View>
+      )}
     </AnimatedPressable>
   );
 }
@@ -148,6 +180,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: Spacing.xl,
   },
+  content: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   buttonText: {
     fontWeight: "700",
     letterSpacing: Typography.button.letterSpacing,
@@ -155,5 +192,11 @@ const styles = StyleSheet.create({
   buttonTextSmall: {
     fontSize: Typography.buttonSmall.fontSize,
     fontWeight: "600",
+  },
+  iconLeft: {
+    marginRight: Spacing.sm,
+  },
+  iconRight: {
+    marginLeft: Spacing.sm,
   },
 });

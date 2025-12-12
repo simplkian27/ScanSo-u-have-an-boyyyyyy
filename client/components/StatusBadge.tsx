@@ -128,6 +128,8 @@ export function StatusBadge({ status, label: customLabel, size = "medium" }: Sta
     >
       <ThemedText
         type="caption"
+        numberOfLines={1}
+        ellipsizeMode="tail"
         style={[
           styles.label,
           { color: config.color },

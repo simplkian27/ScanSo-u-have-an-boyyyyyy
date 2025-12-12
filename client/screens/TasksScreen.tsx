@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, FlatList, Pressable, RefreshControl, ActivityIndicator, Alert } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, RefreshControl, ActivityIndicator, Alert, ScrollView } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
@@ -10,6 +10,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { StatusBadge } from "@/components/StatusBadge";
+import { EmptyState } from "@/components/EmptyState";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -231,16 +233,25 @@ export default function TasksScreen() {
     );
   };
 
+  const getEmptyStateMessage = () => {
+    switch (statusFilter) {
+      case "available":
+        return "Derzeit sind keine offenen Aufträge verfügbar";
+      case "in_progress":
+        return "Sie haben keine aktiven Aufträge";
+      case "completed":
+        return "Sie haben noch keine Aufträge abgeschlossen";
+      default:
+        return "Ihnen sind derzeit keine Aufgaben zugewiesen";
+    }
+  };
+
   const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Feather name="inbox" size={48} color={theme.textSecondary} />
-      <ThemedText type="h4" style={{ color: theme.text, marginTop: Spacing.lg }}>
-        Keine Aufgaben
-      </ThemedText>
-      <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
-        Ihnen sind derzeit keine Aufgaben zugewiesen
-      </ThemedText>
-    </View>
+    <EmptyState
+      icon="inbox"
+      title="Keine Aufgaben"
+      message={getEmptyStateMessage()}
+    />
   );
 
   const FilterButton = ({ filter, label, count }: { filter: StatusFilter; label: string; count: number }) => {
@@ -258,6 +269,7 @@ export default function TasksScreen() {
       >
         <ThemedText 
           type="smallBold" 
+          numberOfLines={1}
           style={{ color: isSelected ? theme.textOnPrimary : theme.text }}
         >
           {label}
@@ -268,6 +280,7 @@ export default function TasksScreen() {
         ]}>
           <ThemedText 
             type="captionBold" 
+            numberOfLines={1}
             style={{ color: isSelected ? theme.textOnAccent : theme.text }}
           >
             {count}
@@ -280,18 +293,20 @@ export default function TasksScreen() {
   return (
     <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <View style={[styles.filterContainer, { marginTop: headerHeight, backgroundColor: theme.backgroundDefault }]}>
-        <View style={styles.filterRow}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScrollContent}
+        >
           <FilterButton filter="available" label="Verfügbar" count={taskCounts.available} />
           <FilterButton filter="all" label="Meine" count={taskCounts.all} />
           <FilterButton filter="in_progress" label="Aktiv" count={taskCounts.in_progress} />
           <FilterButton filter="completed" label="Erledigt" count={taskCounts.completed} />
-        </View>
+        </ScrollView>
       </View>
 
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.accent} />
-        </View>
+        <LoadingScreen fullScreen={false} message="Aufträge werden geladen..." />
       ) : (
         <FlatList
           data={filteredTasks}
@@ -321,23 +336,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   filterContainer: {
-    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
   },
-  filterRow: {
+  filterScrollContent: {
     flexDirection: "row",
     gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
   },
   filterButton: {
-    flex: 1,
+    flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
     gap: Spacing.xs,
+    minHeight: 40,
   },
   countBadge: {
     paddingHorizontal: Spacing.sm,
@@ -349,11 +365,6 @@ const styles = StyleSheet.create({
   listContent: {
     padding: Spacing.lg,
     gap: Spacing.md,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
   },
   taskRow: {
     flexDirection: "row",
@@ -412,12 +423,5 @@ const styles = StyleSheet.create({
   },
   chevronContainer: {
     paddingLeft: Spacing.sm,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: Spacing["5xl"],
-    gap: Spacing.sm,
   },
 });
