@@ -77,6 +77,93 @@ function prepareUserResponse<T extends { password?: string; role?: string }>(use
   return normalizeUserRole(userWithoutPassword);
 }
 
+// ============================================================================
+// BERLIN TIMEZONE HELPERS (Europe/Berlin)
+// ============================================================================
+
+function getTodayBerlin(): Date {
+  const berlinDateStr = new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' });
+  const berlinDate = new Date(berlinDateStr);
+  berlinDate.setHours(0, 0, 0, 0);
+  return berlinDate;
+}
+
+function formatDateBerlin(date: Date): string {
+  return date.toLocaleDateString('en-CA', { timeZone: 'Europe/Berlin' });
+}
+
+// ============================================================================
+// DAILY TASK SCHEDULER
+// ============================================================================
+
+async function generateDailyTasksScheduled() {
+  try {
+    console.log("[DailyTaskScheduler] Running scheduled task generation...");
+    const today = getTodayBerlin();
+    const todayStr = formatDateBerlin(new Date());
+    
+    // Cancel previous OPEN daily tasks from earlier dates
+    const openDailyTasks = await db.select().from(tasks).where(
+      and(eq(tasks.taskType, "DAILY_FULL"), eq(tasks.status, "OPEN"))
+    );
+    let cancelledCount = 0;
+    for (const task of openDailyTasks) {
+      if (task.dedupKey && !task.dedupKey.endsWith(`:${todayStr}`)) {
+        await db.update(tasks).set({
+          status: "CANCELLED",
+          cancelledAt: new Date(),
+          cancellationReason: "Auto-cancelled: New daily task generated",
+          updatedAt: new Date()
+        }).where(eq(tasks.id, task.id));
+        cancelledCount++;
+      }
+    }
+    if (cancelledCount > 0) {
+      console.log(`[DailyTaskScheduler] Auto-cancelled ${cancelledCount} previous OPEN daily tasks.`);
+    }
+    
+    // Get dailyFull stands
+    const dailyFullStands = await db.select().from(stands).where(
+      and(eq(stands.dailyFull, true), eq(stands.isActive, true))
+    );
+    
+    let createdCount = 0;
+    let skippedCount = 0;
+    for (const stand of dailyFullStands) {
+      const dedupKey = `DAILY:${stand.id}:${todayStr}`;
+      try {
+        await db.insert(tasks).values({
+          title: `Tägliche Abholung - Stand ${stand.identifier}`,
+          description: `Automatisch generierte tägliche Abholung`,
+          containerID: stand.id,
+          boxId: null,
+          standId: stand.id,
+          materialType: stand.materialId || null,
+          taskType: "DAILY_FULL",
+          status: "OPEN",
+          priority: "normal",
+          scheduledFor: today,
+          dedupKey,
+        });
+        await db.update(stands).set({
+          lastDailyTaskGeneratedAt: new Date(),
+          updatedAt: new Date()
+        }).where(eq(stands.id, stand.id));
+        createdCount++;
+      } catch (e: any) {
+        if (e?.code === '23505') {
+          skippedCount++;
+          continue;
+        }
+        console.error(`[DailyTaskScheduler] Failed to create task for stand ${stand.id}:`, e);
+      }
+    }
+    console.log(`[DailyTaskScheduler] Completed. Created: ${createdCount}, Skipped (duplicates): ${skippedCount}`);
+  } catch (error) {
+    console.error("[DailyTaskScheduler] Error:", error);
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Request logging middleware
   app.use("/api", (req, res, next) => {
@@ -295,6 +382,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(prepareUserResponse(user));
     } catch (error) {
       res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  // ============================================================================
+  // DEPARTMENTS
+  // ============================================================================
+
+  app.get("/api/departments", async (req, res) => {
+    try {
+      const departmentList = await storage.getDepartments();
+      res.json(departmentList);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch departments" });
+    }
+  });
+
+  app.get("/api/departments/:id", async (req, res) => {
+    try {
+      const department = await storage.getDepartment(req.params.id);
+      if (!department) {
+        return res.status(404).json({ error: "Department not found" });
+      }
+      res.json(department);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch department" });
+    }
+  });
+
+  app.post("/api/departments", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { name, code, description } = req.body;
+      
+      if (!name || !code) {
+        return res.status(400).json({ error: "Name and code are required" });
+      }
+
+      const department = await storage.createDepartment({
+        name,
+        code,
+        description: description || null,
+      });
+
+      res.status(201).json(department);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("unique")) {
+        return res.status(409).json({ error: "Department code already exists" });
+      }
+      res.status(500).json({ error: "Failed to create department" });
+    }
+  });
+
+  app.patch("/api/departments/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const department = await storage.updateDepartment(req.params.id, req.body);
+      if (!department) {
+        return res.status(404).json({ error: "Department not found" });
+      }
+      res.json(department);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("unique")) {
+        return res.status(409).json({ error: "Department code already exists" });
+      }
+      res.status(500).json({ error: "Failed to update department" });
+    }
+  });
+
+  app.delete("/api/departments/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const deleted = await storage.deleteDepartment(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Department not found" });
+      }
+      res.json({ success: true, message: "Department deactivated" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete department" });
     }
   });
 
@@ -2559,6 +2721,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PATCH /api/automotive/stands/:id - Update stand (supports dailyFull and dailyTaskTimeLocal)
+  app.patch("/api/automotive/stands/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const [existing] = await db.select().from(stands).where(eq(stands.id, req.params.id));
+      if (!existing) {
+        return res.status(404).json({ error: "Stand not found" });
+      }
+
+      const { dailyFull, dailyTaskTimeLocal, identifier, materialId, qrCode, sequence, positionMeta, isActive } = req.body;
+      
+      const [stand] = await db.update(stands)
+        .set({
+          ...(dailyFull !== undefined && { dailyFull }),
+          ...(dailyTaskTimeLocal !== undefined && { dailyTaskTimeLocal }),
+          ...(identifier !== undefined && { identifier }),
+          ...(materialId !== undefined && { materialId }),
+          ...(qrCode !== undefined && { qrCode }),
+          ...(sequence !== undefined && { sequence }),
+          ...(positionMeta !== undefined && { positionMeta }),
+          ...(isActive !== undefined && { isActive }),
+          updatedAt: new Date(),
+        })
+        .where(eq(stands.id, req.params.id))
+        .returning();
+
+      res.json(stand);
+    } catch (error) {
+      console.error("Failed to patch stand:", error);
+      res.status(500).json({ error: "Failed to update stand" });
+    }
+  });
+
   // ----------------------------------------------------------------------------
   // BOXES CRUD
   // ----------------------------------------------------------------------------
@@ -2945,114 +3139,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // POST /api/automotive/daily-tasks/generate - Generate daily tasks for dailyFull stands
   // Can be called by cron job or manually triggered by admin
-  // Uses serializable transaction to prevent race conditions
+  // Uses dedupKey to prevent duplicates and auto-cancels previous OPEN tasks
   app.post("/api/automotive/daily-tasks/generate", requireAuth, requireAdmin, async (req, res) => {
     try {
       const authUser = (req as any).authUser;
       const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today = getTodayBerlin();
+      const todayStr = formatDateBerlin(new Date());
       
-      const result = await db.transaction(async (tx) => {
-        // Find all stands with dailyFull=true
-        const dailyFullStands = await tx.select().from(stands).where(
-          and(
-            eq(stands.dailyFull, true),
-            eq(stands.isActive, true)
-          )
-        );
+      // AUTO_CANCEL_PREVIOUS: Cancel previous OPEN daily tasks from earlier dates
+      const openDailyTasks = await db.select().from(tasks).where(
+        and(eq(tasks.taskType, "DAILY_FULL"), eq(tasks.status, "OPEN"))
+      );
+      let cancelledCount = 0;
+      for (const task of openDailyTasks) {
+        if (task.dedupKey && !task.dedupKey.endsWith(`:${todayStr}`)) {
+          await db.update(tasks).set({
+            status: "CANCELLED",
+            cancelledAt: new Date(),
+            cancellationReason: "Auto-cancelled: New daily task generated",
+            updatedAt: new Date()
+          }).where(eq(tasks.id, task.id));
+          cancelledCount++;
+        }
+      }
+      
+      // Find all stands with dailyFull=true
+      const dailyFullStands = await db.select().from(stands).where(
+        and(
+          eq(stands.dailyFull, true),
+          eq(stands.isActive, true)
+        )
+      );
+      
+      const createdTasks: any[] = [];
+      const skipped: { standId: string; reason: string }[] = [];
+      
+      for (const stand of dailyFullStands) {
+        const dedupKey = `DAILY:${stand.id}:${todayStr}`;
         
-        const createdTasks: any[] = [];
-        const skipped: { standId: string; reason: string }[] = [];
-        
-        for (const stand of dailyFullStands) {
-          // Check if task was already generated today
-          if (stand.lastDailyTaskGeneratedAt && stand.lastDailyTaskGeneratedAt >= todayStart) {
-            skipped.push({ standId: stand.id, reason: "Task already generated today" });
-            continue;
-          }
-          
-          // Find a box at this stand that doesn't have an active task
-          const boxesAtStand = await tx.select().from(boxes).where(
-            and(
-              eq(boxes.standId, stand.id),
-              eq(boxes.status, "AT_STAND"),
-              eq(boxes.isActive, true)
-            )
-          );
-          
-          // Find a box without active task
-          let eligibleBox = null;
-          for (const box of boxesAtStand) {
-            if (!box.currentTaskId) {
-              eligibleBox = box;
-              break;
-            }
-            // Check if the current task is completed/cancelled
-            if (box.currentTaskId) {
-              const [existingTask] = await tx.select().from(tasks).where(eq(tasks.id, box.currentTaskId));
-              if (!existingTask || existingTask.status === "DISPOSED" || existingTask.status === "CANCELLED") {
-                eligibleBox = box;
-                break;
-              }
-            }
-          }
-          
-          if (!eligibleBox) {
-            skipped.push({ standId: stand.id, reason: "No available box at stand" });
-            continue;
-          }
-          
-          // Create the daily task
-          const [task] = await tx.insert(tasks).values({
+        try {
+          // Create the daily task with boxId: null (assigned on pickup)
+          const [task] = await db.insert(tasks).values({
             title: `Tägliche Abholung - Stand ${stand.identifier}`,
             description: `Automatisch generierte tägliche Abholung für Stand ${stand.identifier}`,
-            containerID: eligibleBox.id,
-            boxId: eligibleBox.id,
+            containerID: stand.id,
+            boxId: null,
             standId: stand.id,
             materialType: stand.materialId || null,
             taskType: "DAILY_FULL",
             status: "OPEN",
             createdBy: authUser.id,
             priority: "normal",
+            scheduledFor: today,
+            dedupKey,
           }).returning();
           
-          // Update box with current task
-          await tx.update(boxes)
-            .set({ currentTaskId: task.id, updatedAt: new Date() })
-            .where(eq(boxes.id, eligibleBox.id));
-          
           // Update stand's lastDailyTaskGeneratedAt
-          await tx.update(stands)
+          await db.update(stands)
             .set({ lastDailyTaskGeneratedAt: now, updatedAt: new Date() })
             .where(eq(stands.id, stand.id));
           
           // Create task event
-          await tx.insert(taskEvents).values({
+          await db.insert(taskEvents).values({
             taskId: task.id,
             actorUserId: authUser.id,
             action: "TASK_CREATED",
             entityType: "task",
             entityId: task.id,
             beforeData: null,
-            afterData: { status: "OPEN", boxId: eligibleBox.id, standId: stand.id, taskType: "DAILY_FULL" },
+            afterData: { status: "OPEN", boxId: null, standId: stand.id, taskType: "DAILY_FULL", dedupKey },
           });
           
           createdTasks.push({
             task,
             stand: { id: stand.id, identifier: stand.identifier },
-            box: { id: eligibleBox.id, serial: eligibleBox.serial },
           });
+        } catch (e: any) {
+          if (e?.code === '23505') {
+            skipped.push({ standId: stand.id, reason: "Task already exists for today (dedupKey)" });
+            continue;
+          }
+          throw e;
         }
-        
-        return { createdTasks, skipped };
-      }, { isolationLevel: 'serializable' });
+      }
       
       res.json({
         success: true,
-        createdCount: result.createdTasks.length,
-        skippedCount: result.skipped.length,
-        created: result.createdTasks,
-        skipped: result.skipped,
+        createdCount: createdTasks.length,
+        skippedCount: skipped.length,
+        cancelledPreviousCount: cancelledCount,
+        created: createdTasks,
+        skipped: skipped,
         generatedAt: now.toISOString(),
       });
     } catch (error) {
@@ -3099,6 +3277,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/daily-tasks/today - Returns today's OPEN daily tasks (Europe/Berlin timezone)
+  app.get("/api/daily-tasks/today", async (req, res) => {
+    try {
+      const todayStr = formatDateBerlin(new Date());
+      const todayTasks = await db.select().from(tasks).where(
+        and(
+          eq(tasks.taskType, "DAILY_FULL"),
+          eq(tasks.status, "OPEN")
+        )
+      );
+      const filteredTasks = todayTasks.filter(t => 
+        t.dedupKey?.startsWith(`DAILY:`) && t.dedupKey?.endsWith(`:${todayStr}`)
+      );
+      res.json(filteredTasks);
+    } catch (error) {
+      console.error("Failed to fetch today's daily tasks:", error);
+      res.status(500).json({ error: "Failed to fetch today's daily tasks" });
+    }
+  });
+
+  // POST /api/admin/daily-tasks/run - Admin-only, manually triggers daily task generation
+  app.post("/api/admin/daily-tasks/run", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const authUser = (req as any).authUser;
+      const now = new Date();
+      const today = getTodayBerlin();
+      const todayStr = formatDateBerlin(new Date());
+      
+      // AUTO_CANCEL_PREVIOUS: Cancel previous OPEN daily tasks from earlier dates
+      const openDailyTasks = await db.select().from(tasks).where(
+        and(eq(tasks.taskType, "DAILY_FULL"), eq(tasks.status, "OPEN"))
+      );
+      let cancelledCount = 0;
+      for (const task of openDailyTasks) {
+        if (task.dedupKey && !task.dedupKey.endsWith(`:${todayStr}`)) {
+          await db.update(tasks).set({
+            status: "CANCELLED",
+            cancelledAt: new Date(),
+            cancellationReason: "Auto-cancelled: New daily task generated",
+            updatedAt: new Date()
+          }).where(eq(tasks.id, task.id));
+          cancelledCount++;
+        }
+      }
+      
+      // Find all stands with dailyFull=true
+      const dailyFullStands = await db.select().from(stands).where(
+        and(
+          eq(stands.dailyFull, true),
+          eq(stands.isActive, true)
+        )
+      );
+      
+      const createdTasks: any[] = [];
+      const skipped: { standId: string; reason: string }[] = [];
+      
+      for (const stand of dailyFullStands) {
+        const dedupKey = `DAILY:${stand.id}:${todayStr}`;
+        
+        try {
+          const [task] = await db.insert(tasks).values({
+            title: `Tägliche Abholung - Stand ${stand.identifier}`,
+            description: `Automatisch generierte tägliche Abholung für Stand ${stand.identifier}`,
+            containerID: stand.id,
+            boxId: null,
+            standId: stand.id,
+            materialType: stand.materialId || null,
+            taskType: "DAILY_FULL",
+            status: "OPEN",
+            createdBy: authUser.id,
+            priority: "normal",
+            scheduledFor: today,
+            dedupKey,
+          }).returning();
+          
+          await db.update(stands)
+            .set({ lastDailyTaskGeneratedAt: now, updatedAt: new Date() })
+            .where(eq(stands.id, stand.id));
+          
+          await db.insert(taskEvents).values({
+            taskId: task.id,
+            actorUserId: authUser.id,
+            action: "TASK_CREATED",
+            entityType: "task",
+            entityId: task.id,
+            beforeData: null,
+            afterData: { status: "OPEN", boxId: null, standId: stand.id, taskType: "DAILY_FULL", dedupKey },
+          });
+          
+          createdTasks.push({
+            task,
+            stand: { id: stand.id, identifier: stand.identifier },
+          });
+        } catch (e: any) {
+          if (e?.code === '23505') {
+            skipped.push({ standId: stand.id, reason: "Task already exists for today (dedupKey)" });
+            continue;
+          }
+          throw e;
+        }
+      }
+      
+      res.json({
+        success: true,
+        createdCount: createdTasks.length,
+        skippedCount: skipped.length,
+        cancelledPreviousCount: cancelledCount,
+        created: createdTasks,
+        skipped: skipped,
+        generatedAt: now.toISOString(),
+      });
+    } catch (error) {
+      console.error("Failed to run daily tasks:", error);
+      res.status(500).json({ error: "Failed to run daily tasks" });
+    }
+  });
+
   // ----------------------------------------------------------------------------
   // TASK EVENTS ENDPOINTS
   // ----------------------------------------------------------------------------
@@ -3122,6 +3417,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch task events" });
     }
   });
+
+  // ----------------------------------------------------------------------------
+  // DAILY TASK SCHEDULER
+  // Runs at startup (5 second delay) and every hour to generate daily tasks
+  // ----------------------------------------------------------------------------
+  setTimeout(() => {
+    console.log("[DailyTaskScheduler] Initial run starting in 5 seconds...");
+    generateDailyTasksScheduled();
+  }, 5000);
+  
+  setInterval(() => {
+    generateDailyTasksScheduled();
+  }, 60 * 60 * 1000); // Every hour
 
   const httpServer = createServer(app);
   return httpServer;

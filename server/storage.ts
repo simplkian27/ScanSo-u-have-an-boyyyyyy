@@ -1,8 +1,10 @@
 import { 
   users, customers, customerContainers, warehouseContainers, tasks, activityLogs, fillHistory, scanEvents,
+  departments,
   type User, type InsertUser, 
   type Customer, type CustomerContainer, type WarehouseContainer, 
   type Task, type ActivityLog, type FillHistory, type ScanEvent,
+  type Department, type InsertDepartment,
   isValidTaskTransition, getTimestampFieldForStatus
 } from "@shared/schema";
 import { db } from "./db";
@@ -56,6 +58,13 @@ export interface IStorage {
   // Fill History
   getFillHistory(warehouseContainerId: string): Promise<FillHistory[]>;
   createFillHistory(data: Omit<FillHistory, 'id' | 'createdAt'>): Promise<FillHistory>;
+
+  // Departments
+  getDepartments(): Promise<Department[]>;
+  getDepartment(id: string): Promise<Department | undefined>;
+  createDepartment(data: InsertDepartment): Promise<Department>;
+  updateDepartment(id: string, data: Partial<InsertDepartment>): Promise<Department | undefined>;
+  deleteDepartment(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -365,6 +374,38 @@ export class DatabaseStorage implements IStorage {
   async createFillHistory(data: Omit<FillHistory, 'id' | 'createdAt'>): Promise<FillHistory> {
     const [history] = await db.insert(fillHistory).values(data).returning();
     return history;
+  }
+
+  // ============================================================================
+  // DEPARTMENTS
+  // ============================================================================
+
+  async getDepartments(): Promise<Department[]> {
+    return db.select().from(departments).where(eq(departments.isActive, true));
+  }
+
+  async getDepartment(id: string): Promise<Department | undefined> {
+    const [department] = await db.select().from(departments).where(eq(departments.id, id));
+    return department || undefined;
+  }
+
+  async createDepartment(data: InsertDepartment): Promise<Department> {
+    const [department] = await db.insert(departments).values(data).returning();
+    return department;
+  }
+
+  async updateDepartment(id: string, data: Partial<InsertDepartment>): Promise<Department | undefined> {
+    const updateData = { ...data, updatedAt: new Date() };
+    const [department] = await db.update(departments).set(updateData).where(eq(departments.id, id)).returning();
+    return department || undefined;
+  }
+
+  async deleteDepartment(id: string): Promise<boolean> {
+    const [department] = await db.update(departments)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(departments.id, id))
+      .returning();
+    return !!department;
   }
 }
 
