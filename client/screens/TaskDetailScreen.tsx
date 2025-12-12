@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, FlatList } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
@@ -14,9 +14,11 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { TasksStackParamList } from "@/navigation/TasksStackNavigator";
-import { Task, CustomerContainer, TASK_STATUS_LABELS } from "@shared/schema";
+import { Task, CustomerContainer, User, TASK_STATUS_LABELS } from "@shared/schema";
 import { openMapsNavigation } from "@/lib/navigation";
 import { apiRequest } from "@/lib/query-client";
+
+type UserWithoutPassword = Omit<User, "password">;
 
 type RouteProps = RouteProp<TasksStackParamList, "TaskDetail">;
 
@@ -32,10 +34,19 @@ export default function TaskDetailScreen() {
   const queryClient = useQueryClient();
   const { taskId } = route.params;
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [showHandoverModal, setShowHandoverModal] = useState(false);
+  const [isHandingOver, setIsHandingOver] = useState(false);
 
   const { data: task, isLoading } = useQuery<Task>({
     queryKey: [`/api/tasks/${taskId}`],
   });
+
+  const { data: users = [] } = useQuery<UserWithoutPassword[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const drivers = users.filter((u) => u.role === "DRIVER" || u.role === "driver").filter((u) => u.isActive && u.id !== user?.id);
   
   const deleteTaskMutation = useMutation({
     mutationFn: async () => {
@@ -54,6 +65,65 @@ export default function TaskDetailScreen() {
       console.error("Delete task error:", error);
     },
   });
+
+  const handleClaimTask = async () => {
+    if (!user || !task) return;
+    setIsClaiming(true);
+    try {
+      const response = await apiRequest("POST", `/api/tasks/${taskId}/claim`, { userId: user.id });
+      if (response.status === 409) {
+        Alert.alert("Fehler", "Dieser Auftrag wurde bereits von einem anderen Fahrer angenommen.");
+        setIsClaiming(false);
+        return;
+      }
+      if (!response.ok) {
+        const errorData = await response.json();
+        Alert.alert("Fehler", errorData.error || "Auftrag konnte nicht angenommen werden.");
+        setIsClaiming(false);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${taskId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
+      Alert.alert("Erfolg", "Auftrag erfolgreich angenommen");
+    } catch (error) {
+      Alert.alert("Fehler", "Auftrag konnte nicht angenommen werden.");
+      console.error("Claim task error:", error);
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
+  const handleHandover = async (newUserId: string) => {
+    if (!user || !task) return;
+    setIsHandingOver(true);
+    try {
+      const response = await apiRequest("POST", `/api/tasks/${taskId}/handover`, { newUserId });
+      if (!response.ok) {
+        const errorData = await response.json();
+        Alert.alert("Fehler", errorData.error || "Übergabe fehlgeschlagen.");
+        setIsHandingOver(false);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${taskId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
+      setShowHandoverModal(false);
+      Alert.alert("Erfolg", "Auftrag erfolgreich übergeben");
+    } catch (error) {
+      Alert.alert("Fehler", "Übergabe fehlgeschlagen.");
+      console.error("Handover task error:", error);
+    } finally {
+      setIsHandingOver(false);
+    }
+  };
+
+  const canClaim = task && (task.status === "OFFEN" || task.status === "PLANNED") && !task.claimedByUserId && !task.assignedTo;
+  const canHandover = task && 
+    !["COMPLETED", "CANCELLED"].includes(task.status) && 
+    (isAdmin || task.assignedTo === user?.id || task.claimedByUserId === user?.id);
 
   const { data: container } = useQuery<CustomerContainer>({
     queryKey: [`/api/containers/customer/${task?.containerID}`],
@@ -291,6 +361,55 @@ export default function TaskDetailScreen() {
           </Card>
         ) : null}
 
+        {canClaim ? (
+          <Card style={[styles.claimCard, { backgroundColor: theme.cardSurface }]}>
+            <ThemedText type="h4" style={styles.sectionTitle}>
+              Auftrag verfügbar
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
+              Dieser Auftrag ist noch nicht zugewiesen. Sie können ihn annehmen.
+            </ThemedText>
+            <Button 
+              onPress={handleClaimTask} 
+              disabled={isClaiming}
+              style={[styles.claimButton, { backgroundColor: theme.primary }]}
+            >
+              <View style={styles.buttonContent}>
+                {isClaiming ? (
+                  <ActivityIndicator size="small" color={theme.textOnPrimary} />
+                ) : (
+                  <Feather name="user-check" size={20} color={theme.textOnPrimary} />
+                )}
+                <ThemedText type="body" style={{ color: theme.textOnPrimary, fontWeight: "600" }}>
+                  {isClaiming ? "Wird angenommen..." : "Auftrag annehmen"}
+                </ThemedText>
+              </View>
+            </Button>
+          </Card>
+        ) : null}
+
+        {canHandover ? (
+          <Card style={[styles.handoverCard, { backgroundColor: theme.cardSurface }]}>
+            <ThemedText type="h4" style={styles.sectionTitle}>
+              Auftrag übergeben
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
+              Übertragen Sie diesen Auftrag an einen anderen Fahrer.
+            </ThemedText>
+            <Button 
+              onPress={() => setShowHandoverModal(true)} 
+              style={[styles.handoverButton, { backgroundColor: theme.info }]}
+            >
+              <View style={styles.buttonContent}>
+                <Feather name="user-plus" size={20} color={theme.textOnPrimary} />
+                <ThemedText type="body" style={{ color: theme.textOnPrimary, fontWeight: "600" }}>
+                  Übergabe
+                </ThemedText>
+              </View>
+            </Button>
+          </Card>
+        ) : null}
+
         {isActive ? (
           <View style={styles.actions}>
             <Button onPress={handleNavigation} style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.primary }]}>
@@ -336,6 +455,69 @@ export default function TaskDetailScreen() {
           </Card>
         ) : null}
       </ScrollView>
+
+      <Modal
+        visible={showHandoverModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowHandoverModal(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.cardSurface }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="h3">Auftrag übergeben</ThemedText>
+              <Pressable onPress={() => setShowHandoverModal(false)} style={styles.closeButton}>
+                <Feather name="x" size={24} color={theme.text} />
+              </Pressable>
+            </View>
+            <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
+              Wählen Sie einen Fahrer, an den der Auftrag übergeben werden soll:
+            </ThemedText>
+            {drivers.length === 0 ? (
+              <View style={styles.noDriversState}>
+                <Feather name="users" size={32} color={theme.textSecondary} />
+                <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.md }}>
+                  Keine anderen aktiven Fahrer verfügbar
+                </ThemedText>
+              </View>
+            ) : (
+              <FlatList
+                data={drivers}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={[styles.driverItem, { backgroundColor: theme.backgroundSecondary }]}
+                    onPress={() => handleHandover(item.id)}
+                    disabled={isHandingOver}
+                  >
+                    <View style={[styles.driverAvatar, { backgroundColor: theme.primary }]}>
+                      <ThemedText type="small" style={{ color: theme.textOnPrimary, fontWeight: "600" }}>
+                        {item.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
+                      </ThemedText>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <ThemedText type="body" style={{ fontWeight: "600" }}>{item.name}</ThemedText>
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>{item.email}</ThemedText>
+                    </View>
+                    {isHandingOver ? (
+                      <ActivityIndicator size="small" color={theme.accent} />
+                    ) : (
+                      <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+                    )}
+                  </Pressable>
+                )}
+                ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
+              />
+            )}
+            <Button 
+              onPress={() => setShowHandoverModal(false)} 
+              style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary, marginTop: Spacing.lg }]}
+            >
+              <ThemedText type="body" style={{ color: theme.text }}>Abbrechen</ThemedText>
+            </Button>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -447,6 +629,59 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   deleteButton: {
+    paddingVertical: Spacing.md,
+  },
+  claimCard: {
+    padding: Spacing.lg,
+    marginTop: Spacing.md,
+  },
+  claimButton: {
+    paddingVertical: Spacing.lg,
+  },
+  handoverCard: {
+    padding: Spacing.lg,
+  },
+  handoverButton: {
+    paddingVertical: Spacing.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    maxHeight: "70%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  closeButton: {
+    padding: Spacing.sm,
+  },
+  driverItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.md,
+  },
+  driverAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  noDriversState: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+  },
+  cancelButton: {
     paddingVertical: Spacing.md,
   },
 });

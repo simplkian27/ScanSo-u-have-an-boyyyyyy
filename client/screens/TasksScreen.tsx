@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { View, StyleSheet, FlatList, Pressable, RefreshControl, ActivityIndicator } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, RefreshControl, ActivityIndicator, Alert } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -16,9 +16,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { TasksStackParamList } from "@/navigation/TasksStackNavigator";
 import { Task, CustomerContainer, TASK_STATUS_LABELS } from "@shared/schema";
 import { openMapsNavigation } from "@/lib/navigation";
+import { apiRequest } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, "Tasks">;
-type StatusFilter = "all" | "open" | "in_progress" | "completed";
+type StatusFilter = "all" | "available" | "open" | "in_progress" | "completed";
 
 const OPEN_STATUSES = ["PLANNED", "ASSIGNED"];
 const IN_PROGRESS_STATUSES = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
@@ -29,9 +30,11 @@ export default function TasksScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const queryClient = useQueryClient();
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null);
 
   const { data: tasks = [], isLoading, refetch, isRefetching } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
@@ -56,14 +59,51 @@ export default function TasksScreen() {
     }
   };
 
-  const myTasks = tasks.filter((task) => task.assignedTo === user?.id);
-  const filteredTasks = myTasks.filter((task) => {
-    if (statusFilter === "all") return task.status !== "CANCELLED";
-    if (statusFilter === "open") return OPEN_STATUSES.includes(task.status);
-    if (statusFilter === "in_progress") return IN_PROGRESS_STATUSES.includes(task.status);
-    if (statusFilter === "completed") return COMPLETED_STATUSES.includes(task.status);
-    return true;
-  });
+  const handleQuickClaim = async (taskId: string) => {
+    if (!user) return;
+    setClaimingTaskId(taskId);
+    try {
+      const response = await apiRequest("POST", `/api/tasks/${taskId}/claim`, { userId: user.id });
+      if (response.status === 409) {
+        Alert.alert("Fehler", "Dieser Auftrag wurde bereits von einem anderen Fahrer angenommen.");
+        setClaimingTaskId(null);
+        return;
+      }
+      if (!response.ok) {
+        const errorData = await response.json();
+        Alert.alert("Fehler", errorData.error || "Auftrag konnte nicht angenommen werden.");
+        setClaimingTaskId(null);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers/overview"] });
+      Alert.alert("Erfolg", "Auftrag erfolgreich angenommen");
+    } catch (error) {
+      Alert.alert("Fehler", "Auftrag konnte nicht angenommen werden.");
+      console.error("Claim task error:", error);
+    } finally {
+      setClaimingTaskId(null);
+    }
+  };
+
+  const availableTasks = tasks.filter((task) => 
+    task.status === "OFFEN" && !task.claimedByUserId && !task.assignedTo
+  );
+  const myTasks = tasks.filter((task) => task.assignedTo === user?.id || task.claimedByUserId === user?.id);
+  
+  const getFilteredTasks = () => {
+    if (statusFilter === "available") return availableTasks;
+    return myTasks.filter((task) => {
+      if (statusFilter === "all") return task.status !== "CANCELLED";
+      if (statusFilter === "open") return OPEN_STATUSES.includes(task.status);
+      if (statusFilter === "in_progress") return IN_PROGRESS_STATUSES.includes(task.status);
+      if (statusFilter === "completed") return COMPLETED_STATUSES.includes(task.status);
+      return true;
+    });
+  };
+  
+  const filteredTasks = getFilteredTasks();
 
   const getStatusColor = (status: string) => {
     if (OPEN_STATUSES.includes(status)) return theme.statusOpen;
@@ -89,6 +129,7 @@ export default function TasksScreen() {
 
   const taskCounts = {
     all: myTasks.filter(t => t.status !== "CANCELLED").length,
+    available: availableTasks.length,
     open: myTasks.filter(t => OPEN_STATUSES.includes(t.status)).length,
     in_progress: myTasks.filter(t => IN_PROGRESS_STATUSES.includes(t.status)).length,
     completed: myTasks.filter(t => COMPLETED_STATUSES.includes(t.status)).length,
@@ -98,6 +139,8 @@ export default function TasksScreen() {
     const container = getContainerById(item.containerID);
     const hasLocation = container?.latitude && container?.longitude;
     const isActive = OPEN_STATUSES.includes(item.status) || IN_PROGRESS_STATUSES.includes(item.status);
+    const isClaimable = item.status === "OFFEN" && !item.claimedByUserId && !item.assignedTo;
+    const isClaiming = claimingTaskId === item.id;
 
     return (
       <Card
@@ -147,7 +190,27 @@ export default function TasksScreen() {
               </View>
             </View>
 
-            {isActive && hasLocation ? (
+            {isClaimable ? (
+              <Pressable 
+                style={[styles.claimButton, { backgroundColor: theme.primary }]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleQuickClaim(item.id);
+                }}
+                disabled={isClaiming}
+              >
+                {isClaiming ? (
+                  <ActivityIndicator size="small" color={theme.textOnPrimary} />
+                ) : (
+                  <>
+                    <Feather name="user-check" size={16} color={theme.textOnPrimary} />
+                    <ThemedText type="captionBold" style={{ color: theme.textOnPrimary, marginTop: 2 }}>
+                      Annehmen
+                    </ThemedText>
+                  </>
+                )}
+              </Pressable>
+            ) : isActive && hasLocation ? (
               <Pressable 
                 style={[styles.navButton, { backgroundColor: theme.accent }]}
                 onPress={(e) => {
@@ -218,8 +281,8 @@ export default function TasksScreen() {
     <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <View style={[styles.filterContainer, { marginTop: headerHeight, backgroundColor: theme.backgroundDefault }]}>
         <View style={styles.filterRow}>
-          <FilterButton filter="all" label="Alle" count={taskCounts.all} />
-          <FilterButton filter="open" label="Offen" count={taskCounts.open} />
+          <FilterButton filter="available" label="Verfügbar" count={taskCounts.available} />
+          <FilterButton filter="all" label="Meine" count={taskCounts.all} />
           <FilterButton filter="in_progress" label="Aktiv" count={taskCounts.in_progress} />
           <FilterButton filter="completed" label="Erledigt" count={taskCounts.completed} />
         </View>
@@ -337,6 +400,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginLeft: Spacing.md,
+  },
+  claimButton: {
+    width: 60,
+    height: 48,
+    borderRadius: BorderRadius.sm,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: Spacing.md,
+    paddingHorizontal: Spacing.sm,
   },
   chevronContainer: {
     paddingLeft: Spacing.sm,

@@ -15,10 +15,8 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
-import { CustomerContainer, User, WarehouseContainer } from "@shared/schema";
+import { CustomerContainer, WarehouseContainer } from "@shared/schema";
 import { ProgressBar } from "@/components/ProgressBar";
-
-type UserWithoutPassword = Omit<User, "password">;
 
 export default function CreateTaskScreen() {
   const headerHeight = useHeaderHeight();
@@ -29,7 +27,6 @@ export default function CreateTaskScreen() {
   const { theme } = useTheme();
 
   const [selectedContainer, setSelectedContainer] = useState<string>("");
-  const [selectedDriver, setSelectedDriver] = useState<string>("");
   const [selectedWarehouseContainer, setSelectedWarehouseContainer] = useState<string>("");
   const [estimatedAmount, setEstimatedAmount] = useState("");
   const [notes, setNotes] = useState("");
@@ -45,15 +42,10 @@ export default function CreateTaskScreen() {
     queryKey: ["/api/containers/customer"],
   });
 
-  const { data: users = [] } = useQuery<UserWithoutPassword[]>({
-    queryKey: ["/api/users"],
-  });
-
   const { data: warehouseContainers = [] } = useQuery<WarehouseContainer[]>({
     queryKey: ["/api/containers/warehouse"],
   });
 
-  const drivers = users.filter((u) => u.role === "driver" && u.isActive);
   const selectedContainerData = containers.find((c) => c.id === selectedContainer);
   
   const filteredWarehouseContainers = warehouseContainers.filter(
@@ -61,17 +53,12 @@ export default function CreateTaskScreen() {
   );
 
   const handleSubmit = async () => {
-    if (!selectedContainer || !selectedDriver) {
-      setError("Bitte wählen Sie einen Container und Fahrer aus");
+    if (!selectedContainer) {
+      setError("Bitte wählen Sie einen Container aus");
       return;
     }
 
-    // Validate materialType is available from container data
     const materialType = selectedContainerData?.materialType;
-    if (!materialType) {
-      setError("Materialtyp konnte nicht ermittelt werden. Bitte wählen Sie einen gültigen Container.");
-      return;
-    }
 
     setIsSubmitting(true);
     setError("");
@@ -79,14 +66,14 @@ export default function CreateTaskScreen() {
     try {
       await apiRequest("POST", "/api/tasks", {
         containerID: selectedContainer,
-        assignedTo: selectedDriver,
-        materialType: materialType,
+        assignedTo: null,
+        materialType: materialType || null,
         estimatedAmount: estimatedAmount ? parseFloat(estimatedAmount) : null,
         priority,
         notes: notes.trim() || null,
         createdBy: user?.id,
         scheduledTime: new Date().toISOString(),
-        status: "PLANNED",
+        status: "OFFEN",
         deliveryContainerID: selectedWarehouseContainer || null,
       });
 
@@ -158,49 +145,13 @@ export default function CreateTaskScreen() {
           ) : null}
         </Card>
 
-        <Card style={styles.section}>
-          <ThemedText type="h4" style={styles.sectionTitle}>
-            Fahrer zuweisen
-          </ThemedText>
-          <View style={styles.driverList}>
-            {drivers.map((driver) => (
-              <Pressable
-                key={driver.id}
-                style={[
-                  styles.driverOption,
-                  { backgroundColor: theme.backgroundSecondary },
-                  selectedDriver === driver.id && { backgroundColor: `${theme.accent}20`, borderWidth: 2, borderColor: theme.accent },
-                ]}
-                onPress={() => setSelectedDriver(driver.id)}
-              >
-                <View
-                  style={[
-                    styles.driverAvatar,
-                    { backgroundColor: theme.primary },
-                    selectedDriver === driver.id && { backgroundColor: theme.accent },
-                  ]}
-                >
-                  <ThemedText type="small" style={[styles.driverInitials, { color: theme.textOnPrimary }]}>
-                    {driver.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
-                  </ThemedText>
-                </View>
-                <ThemedText
-                  type="body"
-                  style={selectedDriver === driver.id ? { color: theme.accent, fontWeight: "600" } : undefined}
-                >
-                  {driver.name}
-                </ThemedText>
-                {selectedDriver === driver.id ? (
-                  <Feather name="check" size={20} color={theme.accent} />
-                ) : null}
-              </Pressable>
-            ))}
-          </View>
-          {drivers.length === 0 ? (
-            <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", padding: Spacing.lg }}>
-              Keine aktiven Fahrer verfügbar
+        <Card style={[styles.section, { backgroundColor: theme.infoLight, borderColor: theme.info }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+            <Feather name="info" size={20} color={theme.info} />
+            <ThemedText type="body" style={{ color: theme.info, flex: 1 }}>
+              Dieser Auftrag wird als offen erstellt. Fahrer können ihn selbst annehmen.
             </ThemedText>
-          ) : null}
+          </View>
         </Card>
 
         <Card style={styles.section}>
@@ -358,7 +309,7 @@ export default function CreateTaskScreen() {
         <Button
           style={[styles.submitButton, { backgroundColor: theme.accent }]}
           onPress={handleSubmit}
-          disabled={isSubmitting || !selectedContainer || !selectedDriver}
+          disabled={isSubmitting || !selectedContainer}
         >
           {isSubmitting ? (
             <ActivityIndicator size="small" color={theme.textOnAccent} />
@@ -414,26 +365,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     padding: Spacing.sm,
     borderRadius: BorderRadius.xs,
-  },
-  driverList: {
-    gap: Spacing.sm,
-  },
-  driverOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
-  },
-  driverAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  driverInitials: {
-    fontWeight: "600",
   },
   prioritySection: {
     marginTop: Spacing.sm,

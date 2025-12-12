@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { View, StyleSheet, Pressable, Modal, ActivityIndicator, Platform, ScrollView } from "react-native";
+import { View, StyleSheet, Pressable, Modal, ActivityIndicator, Platform, ScrollView, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from "expo-camera";
 import * as Location from "expo-location";
@@ -68,6 +68,8 @@ export default function ScannerScreen() {
   const [targetContainerInfo, setTargetContainerInfo] = useState<TargetContainerInfo | null>(null);
   const [sourceContainerInfo, setSourceContainerInfo] = useState<SourceContainerInfo | null>(null);
   const [taskAccepted, setTaskAccepted] = useState(false);
+  const [measuredWeight, setMeasuredWeight] = useState("");
+  const [weightError, setWeightError] = useState<string | null>(null);
   const scanLock = useRef(false);
 
   const { data: tasks = [] } = useQuery<Task[]>({
@@ -269,6 +271,13 @@ export default function ScannerScreen() {
 
   const confirmDelivery = async () => {
     if (!activeTask || !user || !scanResult || scanResult.type !== "warehouse") return;
+    
+    const weight = parseFloat(measuredWeight);
+    if (isNaN(weight) || weight <= 0) {
+      setWeightError("Bitte geben Sie ein gültiges Gewicht ein (> 0 kg)");
+      return;
+    }
+    setWeightError(null);
     setIsProcessing(true);
     setError(null);
 
@@ -289,10 +298,9 @@ export default function ScannerScreen() {
     }
 
     const availableSpace = warehouseContainer.maxCapacity - warehouseContainer.currentAmount;
-    const estimatedAmount = activeTask.plannedQuantity || activeTask.estimatedAmount || 0;
 
-    if (estimatedAmount > availableSpace) {
-      setError(`Kapazität unzureichend! Nur ${availableSpace.toFixed(0)}kg verfügbar, aber ${estimatedAmount}kg benötigt.`);
+    if (weight > availableSpace) {
+      setError(`Kapazität unzureichend! Nur ${availableSpace.toFixed(0)}kg verfügbar, aber ${weight}kg eingegeben.`);
       setIsProcessing(false);
       scanLock.current = false;
       return;
@@ -303,12 +311,13 @@ export default function ScannerScreen() {
       await apiRequest("POST", `/api/tasks/${activeTask.id}/delivery`, {
         userId: user.id,
         warehouseContainerId: warehouseContainer.id,
-        amount: estimatedAmount,
+        amount: weight,
+        measuredWeight: weight,
         location,
         scanContext: "TASK_COMPLETE_AT_WAREHOUSE",
       });
 
-      setSuccess("Lieferung bestätigt! Aufgabe abgeschlossen.");
+      setSuccess(`Lieferung bestätigt! ${weight} kg erfasst. Aufgabe abgeschlossen.`);
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/containers/warehouse"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
@@ -318,6 +327,7 @@ export default function ScannerScreen() {
         setScanResult(null);
         setActiveTask(null);
         setSuccess(null);
+        setMeasuredWeight("");
         scanLock.current = false;
       }, 2000);
     } catch (err) {
@@ -336,6 +346,8 @@ export default function ScannerScreen() {
     setTaskAccepted(false);
     setTargetContainerInfo(null);
     setSourceContainerInfo(null);
+    setMeasuredWeight("");
+    setWeightError(null);
     scanLock.current = false;
   };
 
@@ -669,6 +681,37 @@ export default function ScannerScreen() {
           </View>
         ) : null}
 
+        {scanResult.type === "warehouse" && activeTask && !hasValidationError ? (
+          <Card style={[styles.weightInputCard, { backgroundColor: theme.cardSurface }]}>
+            <ThemedText type="bodyBold" style={{ marginBottom: Spacing.sm }}>
+              Gemessenes Gewicht
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
+              Bitte geben Sie das tatsächlich gemessene Gewicht ein:
+            </ThemedText>
+            <View style={[styles.weightInputContainer, { backgroundColor: theme.backgroundSecondary, borderColor: weightError ? theme.error : theme.border }]}>
+              <Feather name="package" size={20} color={theme.textSecondary} />
+              <TextInput
+                style={[styles.weightInput, { color: theme.text }]}
+                value={measuredWeight}
+                onChangeText={(text) => {
+                  setMeasuredWeight(text);
+                  setWeightError(null);
+                }}
+                placeholder="0"
+                placeholderTextColor={theme.textSecondary}
+                keyboardType="numeric"
+              />
+              <ThemedText type="body" style={{ color: theme.textSecondary }}>kg</ThemedText>
+            </View>
+            {weightError ? (
+              <ThemedText type="small" style={{ color: theme.error, marginTop: Spacing.xs }}>
+                {weightError}
+              </ThemedText>
+            ) : null}
+          </Card>
+        ) : null}
+
         <View style={styles.modalActions}>
           <Button onPress={closeModal} style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary }]}>
             Abbrechen
@@ -702,7 +745,7 @@ export default function ScannerScreen() {
           ) : scanResult.type === "warehouse" && activeTask && !hasValidationError ? (
             <Button
               onPress={confirmDelivery}
-              disabled={isProcessing}
+              disabled={isProcessing || !measuredWeight}
               style={[styles.confirmButton, { backgroundColor: theme.accent }]}
             >
               {isProcessing ? (
@@ -1149,5 +1192,23 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     justifyContent: "center",
     alignItems: "center",
+  },
+  weightInputCard: {
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  weightInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    gap: Spacing.sm,
+  },
+  weightInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "600",
   },
 });
