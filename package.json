@@ -8,8 +8,8 @@
     "all:dev": "npm run expo:dev & npm run server:dev",
     "expo:start:static:build": "EXPO_PUBLIC_DOMAIN=$REPLIT_INTERNAL_APP_DOMAIN npx expo start --no-dev --minify --localhost",
     "expo:static:build": "node scripts/build.js",
-    "server:build": "esbuild server/index.ts --platform=node --target=node18 --bundle --packages=external --format=esm --outdir=server_dist"
-    "server:start": "NODE_ENV=production node server_dist/index.js",
+    "server:build": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=server_dist",
+    "server:prod": "NODE_ENV=production node server_dist/index.js",
     "db:push": "drizzle-kit push",
     "lint": "npx expo lint",
     "lint:fix": "npx expo lint --fix",
@@ -28,7 +28,6 @@
     "babel-preset-expo": "^54.0.8",
     "drizzle-orm": "^0.39.3",
     "drizzle-zod": "^0.7.0",
-    "esbuild": "^0.20.0",
     "expo": "~54.0.28",
     "expo-blur": "~15.0.8",
     "expo-camera": "^17.0.10",
