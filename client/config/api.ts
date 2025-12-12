@@ -2,16 +2,18 @@
  * API Configuration - Single source of truth for API base URL
  * 
  * Configure API_BASE_URL via environment variable:
- * - EXPO_PUBLIC_API_URL: Full URL to your backend (e.g., https://api.yoursite.com)
+ * - EXPO_PUBLIC_API_URL: Full URL to your backend (overrides default)
  * 
- * IMPORTANT: For production builds, EXPO_PUBLIC_API_URL must be set.
- * In development, defaults to localhost:5000
+ * Default production URL: https://containerflow-api.onrender.com/api
  */
 
 declare const __DEV__: boolean;
 
+// Production API URL - your Render.com deployment
+const PRODUCTION_API_URL = "https://containerflow-api.onrender.com/api";
+
 function buildApiBaseUrl(): string {
-  // Check for explicit API URL environment variable
+  // Check for explicit API URL environment variable (allows override)
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
   
   if (apiUrl) {
@@ -30,12 +32,8 @@ function buildApiBaseUrl(): string {
     return "http://localhost:5000/api";
   }
   
-  // PRODUCTION: If EXPO_PUBLIC_API_URL is not set, this is a configuration error
-  // Throw an error to fail fast rather than silently break
-  throw new Error(
-    "EXPO_PUBLIC_API_URL environment variable is required for production builds. " +
-    "Set it to your backend URL (e.g., https://api.yoursite.com)"
-  );
+  // Production: Use hardcoded Render URL
+  return PRODUCTION_API_URL;
 }
 
 export const API_BASE_URL = buildApiBaseUrl();

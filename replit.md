@@ -76,7 +76,7 @@ Preferred communication style: Simple, everyday language.
 - `ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins (e.g., `https://yourapp.com,https://api.yourapp.com`)
 
 **Required for Frontend (Expo):**
-- `EXPO_PUBLIC_API_URL` - Full URL to your backend API (e.g., `https://api.yourapp.com`)
+- `EXPO_PUBLIC_API_URL` - Full URL to your backend API (optional - defaults to `https://containerflow-api.onrender.com`)
 
 **Required for Static Build:**
 - `DEPLOYMENT_URL` - Your production domain URL (e.g., `https://yourapp.com`)

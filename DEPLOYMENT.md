@@ -96,18 +96,22 @@ After deployment, you need to create the database tables:
 
 ## Step 7: Build the Mobile App
 
-Now build your Expo app with the production API URL:
+The app is pre-configured to use `https://containerflow-api.onrender.com` as the production API.
 
+**Build static bundles:**
 ```bash
-EXPO_PUBLIC_API_URL=https://containerflow-api.onrender.com npm run expo:static:build
+npm run expo:static:build
 ```
 
-Or for native builds with EAS:
+**Or for native builds with EAS:**
 ```bash
 eas build --platform all
 ```
 
-Make sure to set `EXPO_PUBLIC_API_URL` in your EAS build profile.
+To use a different API URL, set `EXPO_PUBLIC_API_URL`:
+```bash
+EXPO_PUBLIC_API_URL=https://your-custom-api.com npm run expo:static:build
+```
 
 ## Environment Variables Reference
 
