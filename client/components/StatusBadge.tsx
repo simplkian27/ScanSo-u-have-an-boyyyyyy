@@ -16,7 +16,7 @@ export function StatusBadge({ status, label: customLabel, size = "medium" }: Sta
   
   const getStatusConfig = () => {
     const taskStatuses: TaskStatusKey[] = [
-      "PLANNED", "ASSIGNED", "ACCEPTED", "PICKED_UP", 
+      "OFFEN", "PLANNED", "ASSIGNED", "ACCEPTED", "PICKED_UP", 
       "IN_TRANSIT", "DELIVERED", "COMPLETED", "CANCELLED"
     ];
     

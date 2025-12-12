@@ -1,9 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -12,13 +12,15 @@ import { Button } from "@/components/Button";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/contexts/AuthContext";
 import { TasksStackParamList } from "@/navigation/TasksStackNavigator";
 import { Task, CustomerContainer, TASK_STATUS_LABELS } from "@shared/schema";
 import { openMapsNavigation } from "@/lib/navigation";
+import { apiRequest } from "@/lib/query-client";
 
 type RouteProps = RouteProp<TasksStackParamList, "TaskDetail">;
 
-const ACTIVE_STATUSES = ["PLANNED", "ASSIGNED", "ACCEPTED", "PICKED_UP", "IN_TRANSIT"];
+const ACTIVE_STATUSES = ["OFFEN", "PLANNED", "ASSIGNED", "ACCEPTED", "PICKED_UP", "IN_TRANSIT"];
 
 export default function TaskDetailScreen() {
   const headerHeight = useHeaderHeight();
@@ -26,10 +28,29 @@ export default function TaskDetailScreen() {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
   const { theme } = useTheme();
+  const { user, isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const { taskId } = route.params;
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: task, isLoading } = useQuery<Task>({
     queryKey: [`/api/tasks/${taskId}`],
+  });
+  
+  const deleteTaskMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("DELETE", `/api/tasks/${taskId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      Alert.alert("Erfolg", "Auftrag wurde erfolgreich gelöscht", [
+        { text: "OK", onPress: () => navigation.goBack() }
+      ]);
+    },
+    onError: (error) => {
+      Alert.alert("Fehler", "Auftrag konnte nicht gelöscht werden");
+      console.error("Delete task error:", error);
+    },
   });
 
   const { data: container } = useQuery<CustomerContainer>({
@@ -73,6 +94,24 @@ export default function TaskDetailScreen() {
     }
   };
 
+  const handleDeleteTask = () => {
+    Alert.alert(
+      "Auftrag löschen",
+      "Möchten Sie diesen Auftrag wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+      [
+        { text: "Abbrechen", style: "cancel" },
+        {
+          text: "Löschen",
+          style: "destructive",
+          onPress: () => {
+            setIsDeleting(true);
+            deleteTaskMutation.mutate();
+          },
+        },
+      ]
+    );
+  };
+
   if (isLoading) {
     return (
       <ThemedView style={styles.loadingContainer}>
@@ -92,14 +131,16 @@ export default function TaskDetailScreen() {
     );
   }
 
-  const lifecycleSteps = [
-    { label: "Erstellt", timestamp: task.createdAt, status: "PLANNED", icon: "plus-circle" as const },
-    { label: "Zugewiesen", timestamp: task.assignedAt, status: "ASSIGNED", icon: "user-check" as const },
-    { label: "Angenommen", timestamp: task.acceptedAt, status: "ACCEPTED", icon: "check-circle" as const },
-    { label: "Abgeholt", timestamp: task.pickedUpAt, status: "PICKED_UP", icon: "log-in" as const },
-    { label: "Unterwegs", timestamp: task.inTransitAt, status: "IN_TRANSIT", icon: "truck" as const },
-    { label: "Geliefert", timestamp: task.deliveredAt, status: "DELIVERED", icon: "log-out" as const },
-    { label: "Abgeschlossen", timestamp: task.completedAt, status: "COMPLETED", icon: "check-square" as const },
+  type FeatherIconName = "plus-circle" | "user-check" | "check-circle" | "log-in" | "truck" | "log-out" | "check-square" | "x-circle" | "circle";
+
+  const lifecycleSteps: { label: string; timestamp: Date | string | null; status: string; icon: FeatherIconName }[] = [
+    { label: "Offen", timestamp: task.createdAt, status: "OFFEN", icon: "circle" },
+    { label: "Zugewiesen", timestamp: task.assignedAt, status: "ASSIGNED", icon: "user-check" },
+    { label: "Angenommen", timestamp: task.acceptedAt, status: "ACCEPTED", icon: "check-circle" },
+    { label: "Abgeholt", timestamp: task.pickedUpAt, status: "PICKED_UP", icon: "log-in" },
+    { label: "Unterwegs", timestamp: task.inTransitAt, status: "IN_TRANSIT", icon: "truck" },
+    { label: "Geliefert", timestamp: task.deliveredAt, status: "DELIVERED", icon: "log-out" },
+    { label: "Abgeschlossen", timestamp: task.completedAt, status: "COMPLETED", icon: "check-square" },
   ];
 
   if (task.status === "CANCELLED") {
@@ -107,7 +148,7 @@ export default function TaskDetailScreen() {
       label: "Storniert", 
       timestamp: task.cancelledAt, 
       status: "CANCELLED", 
-      icon: "x-circle" as const 
+      icon: "x-circle"
     });
   }
 
@@ -268,6 +309,30 @@ export default function TaskDetailScreen() {
             </Button>
           </View>
         ) : null}
+
+        {isAdmin ? (
+          <Card style={[styles.adminCard, { backgroundColor: theme.cardSurface, borderColor: theme.error }]}>
+            <ThemedText type="h4" style={[styles.sectionTitle, { color: theme.error }]}>
+              Admin-Aktionen
+            </ThemedText>
+            <Button 
+              onPress={handleDeleteTask} 
+              disabled={isDeleting || deleteTaskMutation.isPending}
+              style={[styles.deleteButton, { backgroundColor: theme.error }]}
+            >
+              <View style={styles.buttonContent}>
+                {isDeleting || deleteTaskMutation.isPending ? (
+                  <ActivityIndicator size="small" color={theme.textOnAccent} />
+                ) : (
+                  <Feather name="trash-2" size={20} color={theme.textOnAccent} />
+                )}
+                <ThemedText type="body" style={{ color: theme.textOnAccent, fontWeight: "600" }}>
+                  {isDeleting || deleteTaskMutation.isPending ? "Wird gelöscht..." : "Auftrag löschen"}
+                </ThemedText>
+              </View>
+            </Button>
+          </Card>
+        ) : null}
       </ScrollView>
     </ThemedView>
   );
@@ -373,5 +438,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
+  },
+  adminCard: {
+    padding: Spacing.lg,
+    marginTop: Spacing.lg,
+    borderWidth: 1,
+  },
+  deleteButton: {
+    paddingVertical: Spacing.md,
   },
 });

@@ -292,6 +292,7 @@ export const AnimationConfig = {
 // ============================================================================
 
 export type TaskStatusKey = 
+  | "OFFEN"
   | "PLANNED"
   | "ASSIGNED"
   | "ACCEPTED"
@@ -309,6 +310,11 @@ interface StatusBadgeStyle {
 
 export const TaskStatusColors: Record<"light" | "dark", Record<TaskStatusKey, StatusBadgeStyle>> = {
   light: {
+    OFFEN: {
+      backgroundColor: "#F3F4F6",
+      textColor: "#4B5563",
+      borderColor: "#D1D5DB",
+    },
     PLANNED: {
       backgroundColor: "#E0E7FF",
       textColor: "#3730A3",
@@ -351,6 +357,11 @@ export const TaskStatusColors: Record<"light" | "dark", Record<TaskStatusKey, St
     },
   },
   dark: {
+    OFFEN: {
+      backgroundColor: "#374151",
+      textColor: "#D1D5DB",
+      borderColor: "#6B7280",
+    },
     PLANNED: {
       backgroundColor: "#312E81",
       textColor: "#C7D2FE",
