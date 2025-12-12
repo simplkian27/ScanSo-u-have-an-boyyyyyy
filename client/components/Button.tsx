@@ -9,7 +9,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing, Typography, AnimationConfig } from "@/constants/theme";
+import { BorderRadius, Spacing, Typography, AnimationConfig, ButtonColors } from "@/constants/theme";
 
 type ButtonVariant = "primary" | "secondary" | "tertiary" | "danger";
 
@@ -93,17 +93,18 @@ export function Button({
   };
 
   const getTextColor = (): string => {
+    const buttonTheme = isDark ? ButtonColors.dark : ButtonColors.light;
     switch (variant) {
       case "primary":
-        return "#FFFFFF";
+        return buttonTheme.primaryText;
       case "danger":
-        return "#FFFFFF";
+        return buttonTheme.dangerText;
       case "secondary":
-        return isDark ? theme.primaryLight : theme.primary;
+        return buttonTheme.secondaryText;
       case "tertiary":
-        return theme.text;
+        return buttonTheme.tertiaryText;
       default:
-        return "#FFFFFF";
+        return buttonTheme.primaryText;
     }
   };
 

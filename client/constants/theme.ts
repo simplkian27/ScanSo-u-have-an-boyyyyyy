@@ -286,3 +286,188 @@ export const AnimationConfig = {
   pressScale: 0.97,
   pressOpacity: 0.85,
 };
+
+// ============================================================================
+// STATUS BADGE COLOR MAPPINGS
+// ============================================================================
+
+export type TaskStatusKey = 
+  | "PLANNED"
+  | "ASSIGNED"
+  | "ACCEPTED"
+  | "PICKED_UP"
+  | "IN_TRANSIT"
+  | "DELIVERED"
+  | "COMPLETED"
+  | "CANCELLED";
+
+interface StatusBadgeStyle {
+  backgroundColor: string;
+  textColor: string;
+  borderColor: string;
+}
+
+export const TaskStatusColors: Record<"light" | "dark", Record<TaskStatusKey, StatusBadgeStyle>> = {
+  light: {
+    PLANNED: {
+      backgroundColor: "#E0E7FF",
+      textColor: "#3730A3",
+      borderColor: "#A5B4FC",
+    },
+    ASSIGNED: {
+      backgroundColor: "#DBEAFE",
+      textColor: "#1E40AF",
+      borderColor: "#93C5FD",
+    },
+    ACCEPTED: {
+      backgroundColor: "#4A90A4",
+      textColor: "#FFFFFF",
+      borderColor: "#4A90A4",
+    },
+    PICKED_UP: {
+      backgroundColor: "#F5A623",
+      textColor: "#1E293B",
+      borderColor: "#F5A623",
+    },
+    IN_TRANSIT: {
+      backgroundColor: "#F59E0B",
+      textColor: "#1E293B",
+      borderColor: "#F59E0B",
+    },
+    DELIVERED: {
+      backgroundColor: "#10B981",
+      textColor: "#FFFFFF",
+      borderColor: "#10B981",
+    },
+    COMPLETED: {
+      backgroundColor: "#27AE60",
+      textColor: "#FFFFFF",
+      borderColor: "#27AE60",
+    },
+    CANCELLED: {
+      backgroundColor: "#E74C3C",
+      textColor: "#FFFFFF",
+      borderColor: "#E74C3C",
+    },
+  },
+  dark: {
+    PLANNED: {
+      backgroundColor: "#312E81",
+      textColor: "#C7D2FE",
+      borderColor: "#4338CA",
+    },
+    ASSIGNED: {
+      backgroundColor: "#1E3A5F",
+      textColor: "#93C5FD",
+      borderColor: "#3B82F6",
+    },
+    ACCEPTED: {
+      backgroundColor: "#5DADE2",
+      textColor: "#FFFFFF",
+      borderColor: "#5DADE2",
+    },
+    PICKED_UP: {
+      backgroundColor: "#F7B731",
+      textColor: "#1E293B",
+      borderColor: "#F7B731",
+    },
+    IN_TRANSIT: {
+      backgroundColor: "#F59E0B",
+      textColor: "#1E293B",
+      borderColor: "#F59E0B",
+    },
+    DELIVERED: {
+      backgroundColor: "#10B981",
+      textColor: "#FFFFFF",
+      borderColor: "#10B981",
+    },
+    COMPLETED: {
+      backgroundColor: "#2ECC71",
+      textColor: "#FFFFFF",
+      borderColor: "#2ECC71",
+    },
+    CANCELLED: {
+      backgroundColor: "#E74C3C",
+      textColor: "#FFFFFF",
+      borderColor: "#E74C3C",
+    },
+  },
+};
+
+// Helper function to get status badge colors
+export function getTaskStatusStyle(status: TaskStatusKey, isDark: boolean): StatusBadgeStyle {
+  const mode = isDark ? "dark" : "light";
+  return TaskStatusColors[mode][status] || TaskStatusColors[mode].PLANNED;
+}
+
+// ============================================================================
+// CONTAINER FILL LEVEL COLORS
+// ============================================================================
+
+export function getFillLevelColor(percentage: number, isDark: boolean): string {
+  const colors = isDark ? Colors.dark : Colors.light;
+  if (percentage >= 100) return colors.fillCritical;
+  if (percentage >= 80) return colors.fillHigh;
+  if (percentage >= 50) return colors.fillMedium;
+  return colors.fillLow;
+}
+
+// ============================================================================
+// SEMANTIC BUTTON COLORS (for removing hardcoded values)
+// ============================================================================
+
+export const ButtonColors = {
+  light: {
+    primaryBackground: Colors.light.accent,
+    primaryText: "#FFFFFF",
+    secondaryBackground: "transparent",
+    secondaryText: Colors.light.primary,
+    secondaryBorder: Colors.light.primary,
+    tertiaryBackground: Colors.light.backgroundSecondary,
+    tertiaryText: Colors.light.text,
+    dangerBackground: Colors.light.error,
+    dangerText: "#FFFFFF",
+    disabledOpacity: 0.5,
+  },
+  dark: {
+    primaryBackground: Colors.dark.accent,
+    primaryText: "#FFFFFF",
+    secondaryBackground: "transparent",
+    secondaryText: Colors.dark.primaryLight,
+    secondaryBorder: Colors.dark.primaryLight,
+    tertiaryBackground: Colors.dark.backgroundSecondary,
+    tertiaryText: Colors.dark.text,
+    dangerBackground: Colors.dark.error,
+    dangerText: "#FFFFFF",
+    disabledOpacity: 0.5,
+  },
+};
+
+// ============================================================================
+// INPUT FIELD COLORS
+// ============================================================================
+
+export const InputColors = {
+  light: {
+    background: Colors.light.backgroundDefault,
+    border: Colors.light.border,
+    borderFocused: Colors.light.accent,
+    borderError: Colors.light.error,
+    text: Colors.light.text,
+    placeholder: Colors.light.textTertiary,
+    label: Colors.light.textSecondary,
+    helperText: Colors.light.textSecondary,
+    errorText: Colors.light.error,
+  },
+  dark: {
+    background: Colors.dark.backgroundSecondary,
+    border: Colors.dark.border,
+    borderFocused: Colors.dark.accent,
+    borderError: Colors.dark.error,
+    text: Colors.dark.text,
+    placeholder: Colors.dark.textTertiary,
+    label: Colors.dark.textSecondary,
+    helperText: Colors.dark.textSecondary,
+    errorText: Colors.dark.error,
+  },
+};

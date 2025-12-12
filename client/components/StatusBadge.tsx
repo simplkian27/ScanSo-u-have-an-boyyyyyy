@@ -2,7 +2,7 @@ import React from "react";
 import { View, StyleSheet } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, IndustrialDesign } from "@/constants/theme";
+import { Spacing, BorderRadius, IndustrialDesign, getTaskStatusStyle, TaskStatusKey } from "@/constants/theme";
 import { TASK_STATUS_LABELS } from "@shared/schema";
 
 interface StatusBadgeProps {
@@ -12,118 +12,82 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, label: customLabel, size = "medium" }: StatusBadgeProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   
   const getStatusConfig = () => {
-    const darkTextOnYellow = "#1E293B";
+    const taskStatuses: TaskStatusKey[] = [
+      "PLANNED", "ASSIGNED", "ACCEPTED", "PICKED_UP", 
+      "IN_TRANSIT", "DELIVERED", "COMPLETED", "CANCELLED"
+    ];
+    
+    if (taskStatuses.includes(status as TaskStatusKey)) {
+      const statusStyle = getTaskStatusStyle(status as TaskStatusKey, isDark);
+      return {
+        label: TASK_STATUS_LABELS[status] || status,
+        color: statusStyle.textColor,
+        backgroundColor: statusStyle.backgroundColor,
+      };
+    }
     
     switch (status) {
-      case "PLANNED":
-        return {
-          label: TASK_STATUS_LABELS.PLANNED || "Geplant",
-          color: "#FFFFFF",
-          backgroundColor: theme.statusIdle,
-        };
-      case "ASSIGNED":
-        return {
-          label: TASK_STATUS_LABELS.ASSIGNED || "Zugewiesen",
-          color: "#FFFFFF",
-          backgroundColor: theme.statusOpen,
-        };
-      case "ACCEPTED":
-        return {
-          label: TASK_STATUS_LABELS.ACCEPTED || "Angenommen",
-          color: darkTextOnYellow,
-          backgroundColor: theme.statusInProgress,
-        };
-      case "PICKED_UP":
-        return {
-          label: TASK_STATUS_LABELS.PICKED_UP || "Abgeholt",
-          color: darkTextOnYellow,
-          backgroundColor: theme.statusInProgress,
-        };
-      case "IN_TRANSIT":
-        return {
-          label: TASK_STATUS_LABELS.IN_TRANSIT || "Unterwegs",
-          color: "#FFFFFF",
-          backgroundColor: theme.info,
-        };
-      case "DELIVERED":
-        return {
-          label: TASK_STATUS_LABELS.DELIVERED || "Geliefert",
-          color: "#FFFFFF",
-          backgroundColor: theme.statusCompleted,
-        };
-      case "COMPLETED":
-        return {
-          label: TASK_STATUS_LABELS.COMPLETED || "Abgeschlossen",
-          color: "#FFFFFF",
-          backgroundColor: theme.statusCompleted,
-        };
-      case "CANCELLED":
-        return {
-          label: TASK_STATUS_LABELS.CANCELLED || "Storniert",
-          color: "#FFFFFF",
-          backgroundColor: theme.statusCancelled,
-        };
       case "open":
         return {
           label: "Offen",
-          color: "#FFFFFF",
+          color: theme.textOnPrimary,
           backgroundColor: theme.statusOpen,
         };
       case "in_progress":
         return {
           label: "In Bearbeitung",
-          color: darkTextOnYellow,
+          color: isDark ? "#1E293B" : "#1E293B",
           backgroundColor: theme.statusInProgress,
         };
       case "completed":
         return {
           label: "Erledigt",
-          color: "#FFFFFF",
+          color: theme.textOnPrimary,
           backgroundColor: theme.statusCompleted,
         };
       case "cancelled":
         return {
           label: "Storniert",
-          color: "#FFFFFF",
+          color: theme.textOnPrimary,
           backgroundColor: theme.statusCancelled,
         };
       case "active":
         return {
           label: "Aktiv",
-          color: "#FFFFFF",
+          color: theme.textOnPrimary,
           backgroundColor: theme.success,
         };
       case "inactive":
         return {
           label: "Inaktiv",
-          color: "#FFFFFF",
+          color: theme.textOnPrimary,
           backgroundColor: theme.statusIdle,
         };
       case "critical":
         return {
           label: "Kritisch",
-          color: "#FFFFFF",
+          color: theme.textOnPrimary,
           backgroundColor: theme.fillHigh,
         };
       case "warning":
         return {
           label: "Warnung",
-          color: darkTextOnYellow,
+          color: isDark ? "#1E293B" : "#1E293B",
           backgroundColor: theme.fillMedium,
         };
       case "success":
         return {
           label: "OK",
-          color: "#FFFFFF",
+          color: theme.textOnPrimary,
           backgroundColor: theme.fillLow,
         };
       default:
         return {
           label: status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " "),
-          color: "#FFFFFF",
+          color: theme.textOnPrimary,
           backgroundColor: theme.statusIdle,
         };
     }

@@ -71,7 +71,7 @@ export function TextInput({ label, error, helper, style, onFocus, onBlur, ...pro
         style={[
           styles.inputWrapper,
           {
-            backgroundColor: isDark ? theme.cardSurface : "#FFFFFF",
+            backgroundColor: theme.cardSurface,
           },
           animatedWrapperStyle,
         ]}
