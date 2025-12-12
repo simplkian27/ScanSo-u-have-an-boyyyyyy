@@ -10,6 +10,7 @@ import ActivityHistoryScreen from "@/screens/ActivityHistoryScreen";
 import AnalyticsScreen from "@/screens/AnalyticsScreen";
 import DriverPerformanceScreen from "@/screens/DriverPerformanceScreen";
 import QRGeneratorScreen from "@/screens/QRGeneratorScreen";
+import AutomotiveManagementScreen from "@/screens/AutomotiveManagementScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -24,6 +25,7 @@ export type ProfileStackParamList = {
   Analytics: undefined;
   DriverPerformance: undefined;
   QRGenerator: undefined;
+  AutomotiveManagement: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -80,6 +82,11 @@ export default function ProfileStackNavigator() {
             name="QRGenerator"
             component={QRGeneratorScreen}
             options={{ headerTitle: "QR-Code Generator" }}
+          />
+          <Stack.Screen
+            name="AutomotiveManagement"
+            component={AutomotiveManagementScreen}
+            options={{ headerTitle: "Automotive Fabrik" }}
           />
           <Stack.Screen
             name="Profile"
