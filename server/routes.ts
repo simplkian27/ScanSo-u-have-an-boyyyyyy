@@ -307,6 +307,194 @@ async function generateDailyTasksScheduled() {
   }
 }
 
+// ============================================================================
+// FLEXIBLE TASK SCHEDULER
+// Generates tasks based on TaskSchedule rules (DAILY, WEEKLY, INTERVAL)
+// ============================================================================
+
+/**
+ * Get date in specific timezone as a Date object with time set to midnight local
+ */
+function getDateInTimezone(date: Date, timezone: string): Date {
+  const dateStr = date.toLocaleString('en-US', { timeZone: timezone });
+  const localDate = new Date(dateStr);
+  localDate.setHours(0, 0, 0, 0);
+  return localDate;
+}
+
+/**
+ * Format date as YYYY-MM-DD in specified timezone
+ */
+function formatDateInTimezone(date: Date, timezone: string): string {
+  return date.toLocaleDateString('en-CA', { timeZone: timezone });
+}
+
+/**
+ * Get day of week (1=Monday, 7=Sunday) in specified timezone
+ */
+function getDayOfWeekInTimezone(date: Date, timezone: string): number {
+  const dateStr = date.toLocaleString('en-US', { timeZone: timezone });
+  const localDate = new Date(dateStr);
+  const day = localDate.getDay();
+  return day === 0 ? 7 : day; // Convert Sunday from 0 to 7
+}
+
+/**
+ * Calculate days between two dates (ignoring time)
+ */
+function daysBetween(date1: Date, date2: Date): number {
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  d1.setHours(0, 0, 0, 0);
+  d2.setHours(0, 0, 0, 0);
+  const diffTime = d2.getTime() - d1.getTime();
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Check if a task should be generated for a specific date based on schedule rule
+ */
+function shouldGenerateForDate(
+  schedule: TaskSchedule,
+  targetDate: Date,
+  timezone: string
+): boolean {
+  const { ruleType, weekdays, everyNDays, startDate } = schedule;
+
+  switch (ruleType) {
+    case 'DAILY':
+      return true;
+
+    case 'WEEKLY':
+      if (!weekdays || !Array.isArray(weekdays) || weekdays.length === 0) {
+        return false;
+      }
+      const dayOfWeek = getDayOfWeekInTimezone(targetDate, timezone);
+      return weekdays.includes(dayOfWeek);
+
+    case 'INTERVAL':
+      if (!everyNDays || everyNDays < 1 || !startDate) {
+        return false;
+      }
+      const days = daysBetween(startDate, targetDate);
+      return days >= 0 && days % everyNDays === 0;
+
+    default:
+      return false;
+  }
+}
+
+/**
+ * Main flexible scheduler function
+ * Runs through all active schedules and generates tasks for upcoming days
+ */
+async function generateFlexibleScheduledTasks() {
+  try {
+    console.log("[FlexibleScheduler] Running scheduled task generation...");
+    
+    // Get all active schedules
+    const activeSchedules = await db.select()
+      .from(taskSchedules)
+      .where(eq(taskSchedules.isActive, true));
+    
+    if (activeSchedules.length === 0) {
+      console.log("[FlexibleScheduler] No active schedules found.");
+      return;
+    }
+    
+    let totalCreated = 0;
+    let totalSkipped = 0;
+    let totalErrors = 0;
+    
+    for (const schedule of activeSchedules) {
+      const timezone = schedule.timezone || 'Europe/Berlin';
+      const createDaysAhead = schedule.createDaysAhead || 7;
+      
+      // Get stand info for task creation
+      const [stand] = await db.select().from(stands).where(eq(stands.id, schedule.standId));
+      if (!stand || !stand.isActive) {
+        console.log(`[FlexibleScheduler] Stand ${schedule.standId} not found or inactive, skipping schedule ${schedule.id}`);
+        continue;
+      }
+      
+      // Generate tasks for today + createDaysAhead days
+      const now = new Date();
+      for (let dayOffset = 0; dayOffset <= createDaysAhead; dayOffset++) {
+        const targetDate = new Date(now);
+        targetDate.setDate(targetDate.getDate() + dayOffset);
+        
+        // Check if this date should have a task based on rule type
+        if (!shouldGenerateForDate(schedule, targetDate, timezone)) {
+          continue;
+        }
+        
+        const dateStr = formatDateInTimezone(targetDate, timezone);
+        const dedupKey = `SCHEDULED:${schedule.id}:${dateStr}`;
+        
+        // Create scheduled date at the specified time
+        const [hours, minutes] = (schedule.timeLocal || '06:00').split(':').map(Number);
+        const scheduledFor = getDateInTimezone(targetDate, timezone);
+        scheduledFor.setHours(hours || 6, minutes || 0, 0, 0);
+        
+        try {
+          const [newTask] = await db.insert(tasks).values({
+            title: `${schedule.name} - Stand ${stand.identifier}`,
+            description: `Automatisch generiert durch Zeitplan: ${schedule.name}`,
+            containerID: stand.id,
+            boxId: null,
+            standId: stand.id,
+            materialType: stand.materialId || null,
+            taskType: "DAILY_FULL",
+            source: "SCHEDULED",
+            scheduleId: schedule.id,
+            status: "OPEN",
+            priority: "normal",
+            scheduledFor,
+            dedupKey,
+          }).returning();
+          
+          // Audit log for task creation
+          const standMeta = await buildStandContextMeta(stand.id);
+          await createAuditEvent({
+            taskId: newTask.id,
+            action: "TASK_CREATED",
+            entityType: "task",
+            entityId: newTask.id,
+            beforeData: null,
+            afterData: { 
+              status: "OPEN", 
+              taskType: "DAILY_FULL", 
+              source: "SCHEDULED",
+              scheduleId: schedule.id,
+              standId: stand.id,
+              scheduledFor: scheduledFor.toISOString(),
+            },
+            metaJson: {
+              ...standMeta,
+              source: "FLEXIBLE_SCHEDULER",
+              ruleType: schedule.ruleType,
+            },
+          });
+          
+          totalCreated++;
+        } catch (e: any) {
+          if (e?.code === '23505') {
+            // Duplicate key - task already exists for this schedule+date
+            totalSkipped++;
+            continue;
+          }
+          console.error(`[FlexibleScheduler] Failed to create task for schedule ${schedule.id}, date ${dateStr}:`, e);
+          totalErrors++;
+        }
+      }
+    }
+    
+    console.log(`[FlexibleScheduler] Completed. Created: ${totalCreated}, Skipped (duplicates): ${totalSkipped}, Errors: ${totalErrors}`);
+  } catch (error) {
+    console.error("[FlexibleScheduler] Error:", error);
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Request logging middleware
   app.use("/api", (req, res, next) => {
@@ -4364,16 +4552,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ----------------------------------------------------------------------------
-  // DAILY TASK SCHEDULER
-  // Runs at startup (5 second delay) and every hour to generate daily tasks
+  // TASK SCHEDULERS
+  // Daily scheduler: Runs at startup (5 second delay) and every hour
+  // Flexible scheduler: Runs at startup (10 second delay) and every hour
   // ----------------------------------------------------------------------------
   setTimeout(() => {
     console.log("[DailyTaskScheduler] Initial run starting in 5 seconds...");
     generateDailyTasksScheduled();
   }, 5000);
   
+  setTimeout(() => {
+    console.log("[FlexibleScheduler] Initial run starting in 10 seconds...");
+    generateFlexibleScheduledTasks();
+  }, 10000);
+  
   setInterval(() => {
     generateDailyTasksScheduled();
+    generateFlexibleScheduledTasks();
   }, 60 * 60 * 1000); // Every hour
 
   const httpServer = createServer(app);
