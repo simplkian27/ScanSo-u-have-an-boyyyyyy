@@ -1,4 +1,8 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Auth storage key - must match AuthContext
+const AUTH_STORAGE_KEY = "@containerflow_auth_user";
 
 // API URL Configuration
 // EXPO_PUBLIC_DOMAIN is set by Replit at startup to "$REPLIT_DEV_DOMAIN:5000"
@@ -17,6 +21,20 @@ export function getApiUrl(): string {
   return url.href;
 }
 
+// Get current user ID from AsyncStorage for auth headers
+async function getStoredUserId(): Promise<string | null> {
+  try {
+    const storedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      return user.id || null;
+    }
+  } catch {
+    // Ignore errors - no user stored
+  }
+  return null;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -32,9 +50,21 @@ export async function apiRequest(
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
 
+  // Build headers with authentication
+  const headers: Record<string, string> = {};
+  if (data) {
+    headers["Content-Type"] = "application/json";
+  }
+  
+  // Include user ID for authentication on protected routes
+  const userId = await getStoredUserId();
+  if (userId) {
+    headers["x-user-id"] = userId;
+  }
+
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });

@@ -58,6 +58,11 @@ Preferred communication style: Simple, everyday language.
 - **Roles**: `driver` (field operations) and `admin` (full access + management)
 - **User Registration**: Admin-only (drivers cannot self-register)
 - Auth context at `client/contexts/AuthContext.tsx` manages login state
+- **Role Enforcement (Server-side)**:
+  - Admin-only routes are protected by `requireAuth` and `requireAdmin` middleware
+  - Protected routes: POST /api/users, POST /api/customers, POST /api/containers/*, POST /api/tasks, POST /api/containers/*/regenerate-qr
+  - Authentication via `x-user-id` header or `userId` in request body
+  - Returns 401 for missing auth, 403 for insufficient permissions
 
 ### Mobile-Specific Features
 - QR/barcode scanning via `expo-camera` for container identification
@@ -120,3 +125,19 @@ postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supaba
 - TypeScript with strict mode
 - ESLint with Expo config + Prettier integration
 - esbuild for server production builds
+
+## Technical Audit (December 2024)
+
+### Verified Components
+1. **Database Configuration**: Uses only `DATABASE_URL` with SSL enabled for Supabase
+2. **Schema**: All 8 tables present (users, customers, customerContainers, warehouseContainers, tasks, scanEvents, activityLogs, fillHistory)
+3. **Health Check**: `/api/health` performs real DB query and returns proper status
+4. **QR Codes**: Stable server-side generation, lookup endpoints work, admin-only regeneration
+5. **Task Lifecycle**: Valid transitions enforced via `isValidTaskTransition()`, timestamps set correctly
+6. **Frontend**: Uses `EXPO_PUBLIC_DOMAIN`, no hardcoded URLs
+7. **Role Enforcement**: Admin-only routes protected with middleware
+8. **Error Handling**: Consistent JSON error responses with proper HTTP status codes
+
+### Test Credentials
+- Admin: `admin@containerflow.com` / `admin`
+- Driver: `fahrer@containerflow.com` / `123`
