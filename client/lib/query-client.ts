@@ -12,13 +12,19 @@ export function getApiUrl(): string {
   let host = process.env.EXPO_PUBLIC_DOMAIN;
 
   if (!host) {
-    throw new Error("EXPO_PUBLIC_DOMAIN is not set");
+    // Fallback for development - try to use a reasonable default
+    console.warn("EXPO_PUBLIC_DOMAIN is not set, network requests may fail");
+    return "https://localhost:5000";
   }
 
+  // Remove trailing colon and port if present (Replit proxies handle routing)
+  // The domain itself routes to the correct port via Replit's infrastructure
+  const cleanHost = host.replace(/:5000$/, "");
+  
   // Build HTTPS URL pointing to Express backend
-  let url = new URL(`https://${host}`);
-
-  return url.href;
+  const url = `https://${cleanHost}`;
+  
+  return url;
 }
 
 // Get current user ID from AsyncStorage for auth headers
