@@ -21,7 +21,7 @@ import { apiRequest } from "@/lib/query-client";
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, "Tasks">;
 type StatusFilter = "all" | "available" | "open" | "in_progress" | "completed";
 
-const OPEN_STATUSES = ["PLANNED", "ASSIGNED"];
+const OPEN_STATUSES = ["OFFEN", "PLANNED", "ASSIGNED"];
 const IN_PROGRESS_STATUSES = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
 const COMPLETED_STATUSES = ["COMPLETED"];
 

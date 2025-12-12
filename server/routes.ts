@@ -722,11 +722,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Pull-based model: assignedTo is null by default (drivers claim tasks)
   app.post("/api/tasks", requireAuth, requireAdmin, async (req, res) => {
     try {
+      // Get container to derive materialType if not provided
+      let materialType = req.body.materialType;
+      if (!materialType && req.body.containerID) {
+        const container = await storage.getCustomerContainer(req.body.containerID);
+        if (container) {
+          materialType = container.materialType || "";
+        }
+      }
+      // Ensure materialType is never null (database constraint)
+      materialType = materialType || "";
+
       // Convert date strings to Date objects for timestamp columns
       // Force status = OFFEN for all new tasks (ignore client value)
       // Force assignedTo = null for pull-based task claiming
       const taskData: Record<string, any> = {
         ...req.body,
+        materialType, // Use derived or provided materialType
         status: "OFFEN", // Always start with OFFEN - never trust client status
         assignedTo: null, // Pull-based: no pre-assignment, drivers claim tasks
         claimedByUserId: null, // Not claimed yet

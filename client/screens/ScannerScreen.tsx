@@ -49,7 +49,7 @@ interface SourceContainerInfo {
   plannedPickupQuantity: number;
 }
 
-const OPEN_STATUSES = ["PLANNED", "ASSIGNED"];
+const OPEN_STATUSES = ["OFFEN", "PLANNED", "ASSIGNED"];
 const IN_PROGRESS_STATUSES = ["ACCEPTED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"];
 
 export default function ScannerScreen() {
@@ -118,14 +118,23 @@ export default function ScannerScreen() {
         setScanResult({ type: "customer", container });
         
         if (appMode === "task") {
+          // Find tasks assigned to user or claimed by user in OPEN or ACCEPTED status
+          // ACCEPTED status is included because after claiming, task is in ACCEPTED state
+          const isUserTask = (t: Task) => t.assignedTo === user?.id || t.claimedByUserId === user?.id;
+          const PICKUP_STATUSES = [...OPEN_STATUSES, "ACCEPTED"]; // Can pick up from open or accepted status
+          
           const relatedTask = tasks.find(
-            (t) => t.containerID === container.id && OPEN_STATUSES.includes(t.status) && t.assignedTo === user?.id
+            (t) => t.containerID === container.id && PICKUP_STATUSES.includes(t.status) && isUserTask(t)
           );
           if (relatedTask) {
             setActiveTask(relatedTask);
+            // If already in ACCEPTED status, mark as accepted for UI flow
+            if (relatedTask.status === "ACCEPTED") {
+              setTaskAccepted(true);
+            }
           } else {
             const hasAnyTaskForContainer = tasks.some(
-              (t) => t.containerID === container.id && t.assignedTo === user?.id && (OPEN_STATUSES.includes(t.status) || IN_PROGRESS_STATUSES.includes(t.status))
+              (t) => t.containerID === container.id && isUserTask(t) && (OPEN_STATUSES.includes(t.status) || IN_PROGRESS_STATUSES.includes(t.status))
             );
             if (!hasAnyTaskForContainer) {
               setError("Dieser Container gehört nicht zu Ihren Aufgaben.");

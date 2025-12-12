@@ -149,11 +149,27 @@ postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supaba
 - `DELETE /api/tasks/:id` - Admin-only: Delete task with audit logging
 
 ### Recent Updates (December 2024)
-1. **Activity UI Consolidation**: Merged duplicate ActivityLog and ActivityHistory screens into single ActivityHistory screen with advanced features (date grouping, driver filtering, task lifecycle visualization)
-2. **Task Creation Fixes**: 
+1. **Pull-Based Task System (Claim/Handover)**:
+   - Tasks are now created without driver assignment (status = OFFEN)
+   - Drivers see open tasks and can "claim" them via POST /api/tasks/:id/claim
+   - Claiming sets claimedByUserId, claimedAt, and status = ACCEPTED
+   - Task handover supported via POST /api/tasks/:id/handover for reassignment
+   - Activity logs track all claim and handover events
+   - Frontend TasksScreen shows "Verfügbar" (available) tab for unclaimed tasks
+
+2. **Weight Capture at Completion**:
+   - Weight is now captured at delivery (not upfront)
+   - ScannerScreen requires measuredWeight input before completing task at warehouse
+   - Weight is recorded in task.measuredWeight and warehouseContainer.currentAmount
+   - fillHistory entry created for tracking
+
+3. **Activity UI Consolidation**: Merged duplicate ActivityLog and ActivityHistory screens into single ActivityHistory screen with advanced features (date grouping, driver filtering, task lifecycle visualization)
+
+4. **Task Creation Fixes**: 
    - Fixed timestamp bug (scheduledTime, assignedAt, etc.) by converting date strings to Date objects before Drizzle insert
    - Added capacity validation for target warehouse container before task creation
-3. **Warehouse Container Reset**: 
+
+5. **Warehouse Container Reset**: 
    - POST `/api/containers/warehouse/:id/reset` now allows BOTH admin AND driver roles
    - Records emptying in fillHistory table with negative amount
    - Creates activity log entry with CONTAINER_STATUS_CHANGED type and German text
