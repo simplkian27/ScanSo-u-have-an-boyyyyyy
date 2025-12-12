@@ -209,6 +209,18 @@ export default function AdminDashboardScreen() {
               </ThemedText>
             </View>
           </Button>
+
+          <Button
+            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
+            onPress={() => navigation.navigate("DepartmentManagement")}
+          >
+            <View style={styles.actionContent}>
+              <Feather name="briefcase" size={20} color={theme.primary} />
+              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
+                Abteilungen
+              </ThemedText>
+            </View>
+          </Button>
         </View>
 
         <Pressable
