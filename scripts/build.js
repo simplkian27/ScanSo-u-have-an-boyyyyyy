@@ -29,6 +29,19 @@ function setupSignalHandlers() {
 }
 
 function getDeploymentUrl() {
+  // For Render.com deployment - use RENDER_EXTERNAL_HOSTNAME or RENDER_EXTERNAL_URL
+  if (process.env.RENDER_EXTERNAL_HOSTNAME) {
+    const url = `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`;
+    console.log("Using RENDER_EXTERNAL_HOSTNAME:", url);
+    return url;
+  }
+
+  if (process.env.RENDER_EXTERNAL_URL) {
+    console.log("Using RENDER_EXTERNAL_URL:", process.env.RENDER_EXTERNAL_URL);
+    return process.env.RENDER_EXTERNAL_URL;
+  }
+
+  // For Replit deployment
   if (process.env.REPLIT_INTERNAL_APP_DOMAIN) {
     const url = `https://${process.env.REPLIT_INTERNAL_APP_DOMAIN}`;
     console.log("Using REPLIT_INTERNAL_APP_DOMAIN:", url);
@@ -41,8 +54,16 @@ function getDeploymentUrl() {
     return url;
   }
 
+  // Fallback - allow EXPO_PUBLIC_DOMAIN to be used directly
+  if (process.env.EXPO_PUBLIC_DOMAIN) {
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const url = domain.startsWith("http") ? domain : `https://${domain}`;
+    console.log("Using EXPO_PUBLIC_DOMAIN:", url);
+    return url;
+  }
+
   console.error(
-    "ERROR: REPLIT_INTERNAL_APP_DOMAIN and REPLIT_DEV_DOMAIN not set",
+    "ERROR: No deployment URL found. Set one of: RENDER_EXTERNAL_HOSTNAME, REPLIT_INTERNAL_APP_DOMAIN, REPLIT_DEV_DOMAIN, or EXPO_PUBLIC_DOMAIN",
   );
   process.exit(1);
 }
