@@ -1,12 +1,10 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import ContainersScreen from "@/screens/ContainersScreen";
-import ContainerDetailScreen from "@/screens/ContainerDetailScreen";
+import WarehouseScreen from "@/screens/WarehouseScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 export type ContainersStackParamList = {
-  Containers: undefined;
-  ContainerDetail: { containerId: string; type: "customer" | "warehouse" };
+  Warehouse: undefined;
 };
 
 const Stack = createNativeStackNavigator<ContainersStackParamList>();
@@ -17,14 +15,9 @@ export default function ContainersStackNavigator() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen
-        name="Containers"
-        component={ContainersScreen}
-        options={{ headerTitle: "Containers" }}
-      />
-      <Stack.Screen
-        name="ContainerDetail"
-        component={ContainerDetailScreen}
-        options={{ headerTitle: "Container Details" }}
+        name="Warehouse"
+        component={WarehouseScreen}
+        options={{ headerTitle: "Lager" }}
       />
     </Stack.Navigator>
   );

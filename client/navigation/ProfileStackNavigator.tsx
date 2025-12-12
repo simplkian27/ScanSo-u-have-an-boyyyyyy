@@ -3,13 +3,6 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import ProfileScreen from "@/screens/ProfileScreen";
 import AdminDashboardScreen from "@/screens/AdminDashboardScreen";
 import ManageDriversScreen from "@/screens/ManageDriversScreen";
-import ManageContainersScreen from "@/screens/ManageContainersScreen";
-import ManageTasksScreen from "@/screens/ManageTasksScreen";
-import CreateTaskScreen from "@/screens/CreateTaskScreen";
-import ActivityHistoryScreen from "@/screens/ActivityHistoryScreen";
-import AnalyticsScreen from "@/screens/AnalyticsScreen";
-import DriverPerformanceScreen from "@/screens/DriverPerformanceScreen";
-import QRGeneratorScreen from "@/screens/QRGeneratorScreen";
 import AutomotiveManagementScreen from "@/screens/AutomotiveManagementScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,13 +11,6 @@ export type ProfileStackParamList = {
   Profile: undefined;
   AdminDashboard: undefined;
   ManageDrivers: undefined;
-  ManageContainers: undefined;
-  ManageTasks: undefined;
-  CreateTask: undefined;
-  ActivityHistory: undefined;
-  Analytics: undefined;
-  DriverPerformance: undefined;
-  QRGenerator: undefined;
   AutomotiveManagement: undefined;
 };
 
@@ -46,42 +32,7 @@ export default function ProfileStackNavigator() {
           <Stack.Screen
             name="ManageDrivers"
             component={ManageDriversScreen}
-            options={{ headerTitle: "Manage Drivers" }}
-          />
-          <Stack.Screen
-            name="ManageContainers"
-            component={ManageContainersScreen}
-            options={{ headerTitle: "Manage Containers" }}
-          />
-          <Stack.Screen
-            name="ManageTasks"
-            component={ManageTasksScreen}
-            options={{ headerTitle: "Aufgaben verwalten" }}
-          />
-          <Stack.Screen
-            name="CreateTask"
-            component={CreateTaskScreen}
-            options={{ headerTitle: "Create Task" }}
-          />
-          <Stack.Screen
-            name="ActivityHistory"
-            component={ActivityHistoryScreen}
-            options={{ headerTitle: "Aktivitätsverlauf" }}
-          />
-          <Stack.Screen
-            name="Analytics"
-            component={AnalyticsScreen}
-            options={{ headerTitle: "Analytics" }}
-          />
-          <Stack.Screen
-            name="DriverPerformance"
-            component={DriverPerformanceScreen}
-            options={{ headerTitle: "Driver Performance" }}
-          />
-          <Stack.Screen
-            name="QRGenerator"
-            component={QRGeneratorScreen}
-            options={{ headerTitle: "QR-Code Generator" }}
+            options={{ headerTitle: "Fahrer verwalten" }}
           />
           <Stack.Screen
             name="AutomotiveManagement"
@@ -91,14 +42,14 @@ export default function ProfileStackNavigator() {
           <Stack.Screen
             name="Profile"
             component={ProfileScreen}
-            options={{ headerTitle: "Profile" }}
+            options={{ headerTitle: "Profil" }}
           />
         </>
       ) : (
         <Stack.Screen
           name="Profile"
           component={ProfileScreen}
-          options={{ headerTitle: "Profile" }}
+          options={{ headerTitle: "Profil" }}
         />
       )}
     </Stack.Navigator>

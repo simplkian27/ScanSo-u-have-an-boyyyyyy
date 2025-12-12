@@ -188,12 +188,12 @@ export default function AdminDashboardScreen() {
         <View style={styles.actionsGrid}>
           <Button
             style={[styles.actionButton, { backgroundColor: theme.accent }]}
-            onPress={() => navigation.navigate("CreateTask")}
+            onPress={() => navigation.navigate("AutomotiveManagement")}
           >
             <View style={styles.actionContent}>
-              <Feather name="plus-circle" size={20} color={theme.textOnAccent} />
+              <Feather name="box" size={20} color={theme.textOnAccent} />
               <ThemedText type="body" style={[styles.actionText, { color: theme.textOnAccent }]}>
-                Aufgabe erstellen
+                Automotive Fabrik
               </ThemedText>
             </View>
           </Button>
@@ -206,90 +206,6 @@ export default function AdminDashboardScreen() {
               <Feather name="users" size={20} color={theme.primary} />
               <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
                 Fahrer verwalten
-              </ThemedText>
-            </View>
-          </Button>
-
-          <Button
-            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
-            onPress={() => navigation.navigate("ManageContainers")}
-          >
-            <View style={styles.actionContent}>
-              <Feather name="package" size={20} color={theme.primary} />
-              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
-                Container verwalten
-              </ThemedText>
-            </View>
-          </Button>
-
-          <Button
-            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
-            onPress={() => navigation.navigate("ManageTasks")}
-          >
-            <View style={styles.actionContent}>
-              <Feather name="clipboard" size={20} color={theme.primary} />
-              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
-                Aufgaben verwalten
-              </ThemedText>
-            </View>
-          </Button>
-
-          <Button
-            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
-            onPress={() => navigation.navigate("ActivityHistory")}
-          >
-            <View style={styles.actionContent}>
-              <Feather name="activity" size={20} color={theme.primary} />
-              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
-                Aktivitätsverlauf
-              </ThemedText>
-            </View>
-          </Button>
-
-          <Button
-            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
-            onPress={() => navigation.navigate("Analytics")}
-          >
-            <View style={styles.actionContent}>
-              <Feather name="bar-chart-2" size={20} color={theme.primary} />
-              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
-                Statistiken
-              </ThemedText>
-            </View>
-          </Button>
-
-          <Button
-            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
-            onPress={() => navigation.navigate("DriverPerformance")}
-          >
-            <View style={styles.actionContent}>
-              <Feather name="award" size={20} color={theme.primary} />
-              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
-                Fahrerleistung
-              </ThemedText>
-            </View>
-          </Button>
-
-          <Button
-            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
-            onPress={() => navigation.navigate("QRGenerator")}
-          >
-            <View style={styles.actionContent}>
-              <Feather name="grid" size={20} color={theme.primary} />
-              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
-                QR-Code Generator
-              </ThemedText>
-            </View>
-          </Button>
-
-          <Button
-            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
-            onPress={() => navigation.navigate("AutomotiveManagement")}
-          >
-            <View style={styles.actionContent}>
-              <Feather name="box" size={20} color={theme.primary} />
-              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
-                Automotive Fabrik
               </ThemedText>
             </View>
           </Button>
