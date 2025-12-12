@@ -9,22 +9,16 @@ const AUTH_STORAGE_KEY = "@containerflow_auth_user";
 // This ensures all API requests go to the Express backend on port 5000
 // The Expo app NEVER connects directly to Supabase - all DB access goes through the backend
 export function getApiUrl(): string {
-  let host = process.env.EXPO_PUBLIC_DOMAIN;
+  const host = process.env.EXPO_PUBLIC_DOMAIN;
 
   if (!host) {
-    // Fallback for development - try to use a reasonable default
     console.warn("EXPO_PUBLIC_DOMAIN is not set, network requests may fail");
     return "https://localhost:5000";
   }
 
-  // Remove trailing colon and port if present (Replit proxies handle routing)
-  // The domain itself routes to the correct port via Replit's infrastructure
-  const cleanHost = host.replace(/:5000$/, "");
-  
   // Build HTTPS URL pointing to Express backend
-  const url = `https://${cleanHost}`;
-  
-  return url;
+  // The host includes :5000 which routes to the Express server via Replit's proxy
+  return `https://${host}`;
 }
 
 // Get current user ID from AsyncStorage for auth headers
