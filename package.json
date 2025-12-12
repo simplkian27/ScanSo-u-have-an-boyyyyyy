@@ -8,7 +8,7 @@
     "all:dev": "npm run expo:dev & npm run server:dev",
     "expo:start:static:build": "EXPO_PUBLIC_DOMAIN=$REPLIT_INTERNAL_APP_DOMAIN npx expo start --no-dev --minify --localhost",
     "expo:static:build": "node scripts/build.js",
-    "server:build": "esbuild server/index.ts --platform=node --bundle --format=esm --outdir=server_dist",
+    "server:build": "esbuild server/index.ts --platform=node --target=node18 --bundle --packages=external --format=esm --outdir=server_dist"
     "server:start": "NODE_ENV=production node server_dist/index.js",
     "db:push": "drizzle-kit push",
     "lint": "npx expo lint",
