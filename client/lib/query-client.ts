@@ -90,7 +90,15 @@ export const getQueryFn: <T>(options: {
       });
     }
 
+    // Build headers with authentication (same as apiRequest)
+    const headers: Record<string, string> = {};
+    const userId = await getStoredUserId();
+    if (userId) {
+      headers["x-user-id"] = userId;
+    }
+
     const res = await fetch(url, {
+      headers,
       credentials: "include",
     });
 
