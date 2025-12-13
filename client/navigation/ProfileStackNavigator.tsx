@@ -10,6 +10,7 @@ import AnalyticsScreen from "@/screens/AnalyticsScreen";
 import ScheduleManagementScreen from "@/screens/ScheduleManagementScreen";
 import ManualTaskScreen from "@/screens/ManualTaskScreen";
 import StandMappingScreen from "@/screens/StandMappingScreen";
+import LayoutManagementScreen from "@/screens/LayoutManagementScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -24,6 +25,7 @@ export type ProfileStackParamList = {
   ScheduleManagement: undefined;
   ManualTask: undefined;
   StandMapping: undefined;
+  LayoutManagement: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -80,6 +82,11 @@ export default function ProfileStackNavigator() {
             name="StandMapping"
             component={StandMappingScreen}
             options={{ headerTitle: "Stellplatz-Zuordnung" }}
+          />
+          <Stack.Screen
+            name="LayoutManagement"
+            component={LayoutManagementScreen}
+            options={{ headerTitle: "Layout-Verwaltung" }}
           />
           <Stack.Screen
             name="Profile"

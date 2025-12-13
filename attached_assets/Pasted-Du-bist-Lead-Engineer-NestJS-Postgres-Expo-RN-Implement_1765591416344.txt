@@ -1,0 +1,144 @@
+Du bist Lead Engineer (NestJS + Postgres + Expo RN). Implementiere ein zentrales QR-Management-Modul. QR-Codes sind stabil (einmalig) und können von Admin neu generiert werden (nur im Ausnahmefall).
+
+1) Datenbank
+
+Aktueller Stand:
+
+stands.qr_code (UNIQUE, NOT NULL)
+
+boxes.qr_code (UNIQUE, NOT NULL)
+
+warehouse_containers.qr_code (UNIQUE, NOT NULL)
+
+Erweitere Schema:
+
+halls.qr_code text UNIQUE
+
+stations.qr_code text UNIQUE
+Migration erstellen.
+
+2) QR-Standardformat (zwingend)
+
+QR Inhalt ist ein Text, der ein JSON enthält:
+
+Hall: {"t":"HALL","id":"<hallId>"}
+
+Station: {"t":"STATION","id":"<stationId>"}
+
+Stand: {"t":"STAND","id":"<standId>"}
+
+Box: {"t":"BOX","id":"<boxId>"}
+
+Warehouse Container: {"t":"WAREHOUSE_CONTAINER","id":"<containerId>"}
+
+ID muss DB-ID sein, damit QR stabil bleibt.
+
+3) QR Generation Logik (Backend)
+
+Implementiere Service QrService:
+
+ensureQr(entityType, entityId):
+
+lädt Entity
+
+wenn qr_code NULL/leer → setzt standardisierten QR-Text
+
+gibt qr_code zurück
+
+regenerateQr(entityType, entityId) (Admin-only):
+
+erzeugt neuen QR-Text mit zusätzlichem suffix, damit UNIQUE garantiert ist
+
+Beispiel: {"t":"BOX","id":"<id>","v":"<short-rand>"}
+
+speichert und gibt zurück
+
+schreibt Audit/Activity: action='QR_REGENERATED', before/after enthält alten/neuen qr_code
+
+Wichtig:
+
+Standardfall: QR ist stabil ohne v-Feld.
+
+Regenerate: nur wenn nötig, dann mit v-Feld oder random suffix.
+
+4) API Endpoints (Admin-UI)
+
+GET /admin/qr/entities?type=HALL|STATION|STAND|BOX|WAREHOUSE_CONTAINER
+
+liefert Liste (id, displayName, code/identifier/serial, qr_code)
+
+POST /admin/qr/ensure
+
+body: { type, id } -> returns qr_code
+
+POST /admin/qr/regenerate
+
+body: { type, id } -> returns new qr_code (Admin-only)
+
+DisplayName Regeln:
+
+Hall: ${code} - ${name}
+
+Station: ${code} - ${name}
+
+Stand: ${identifier} (Material: ${material.name})
+
+Box: ${serial}
+
+Container: ${qr_code or id} / ${material_type} / ${location}
+
+5) Admin UI: QR Menü (wie du es beschreibst)
+
+Neuer Admin Screen „QR-Codes“:
+
+Schritt 1: Typ auswählen (Halle / Station / Ständer / Box / Lagercontainer)
+
+Schritt 2: Liste/Filter/Search (z.B. nach Code/Identifier/Serial)
+
+Schritt 3: Detail:
+
+QR anzeigen (als QR-Graphic)
+
+Button: „QR generieren“ (falls fehlt) -> calls ensure
+
+Button: „Neu generieren“ (Warn-Dialog) -> calls regenerate
+
+Optional: „Teilen/Export“ (PNG) und „Drucken“ (wenn implementierbar)
+
+6) QR Rendering (Mobile)
+
+Verwende eine RN QR-Library (z.B. react-native-qrcode-svg).
+
+QR muss in hoher Auflösung exportierbar sein (mind. 512x512).
+
+7) Scan-Kompatibilität (wichtig)
+
+Scan-Parser:
+
+Beim Scan muss die App JSON parsen und t + id extrahieren.
+
+Dann Entity laden und Kontext setzen (z.B. Stand scan → Material aus stands.material_id).
+
+Für regen QR mit v-Feld: Parser ignoriert v (nur t + id relevant).
+
+8) Audit / Activity
+
+Jede QR-Aktion schreibt:
+
+activity_logs: type='QR', action='ENSURE'|'REGENERATE', message, user_id, metadata enthält {entityType, entityId, oldQr, newQr}
+
+optional task_events wenn task-bezogen, sonst activity_logs reicht.
+
+Output
+
+Migration + Backend Services/Controllers + UI Screen
+
+README_QR.md mit Format, Regen-Policy, Scan-Parser
+
+Praktischer Hinweis zur „Neu generieren“-Funktion
+
+Wenn du neu generierst, sind alte Sticker ungültig. Deshalb:
+
+UI muss Warntext zeigen: „Alter QR funktioniert dann nicht mehr.“
+
+Optional: in DB eine qr_history Tabelle (später), aber nicht nötig fürs MVP.

@@ -3785,6 +3785,196 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ----------------------------------------------------------------------------
+  // LAYOUT MANAGEMENT API ENDPOINTS
+  // ----------------------------------------------------------------------------
+
+  // PATCH /api/stations/:id - Move station to different hall (admin only)
+  app.patch("/api/stations/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const authUser = (req as any).authUser;
+      const [existing] = await db.select().from(stations).where(eq(stations.id, req.params.id));
+      if (!existing) {
+        return res.status(404).json({ error: "Station not found" });
+      }
+
+      const { hallId } = req.body;
+      
+      if (!hallId) {
+        return res.status(400).json({ error: "hallId is required" });
+      }
+
+      // Verify the target hall exists
+      const [targetHall] = await db.select().from(halls).where(eq(halls.id, hallId));
+      if (!targetHall) {
+        return res.status(404).json({ error: "Target hall not found" });
+      }
+
+      const beforeData = {
+        hallId: existing.hallId,
+        name: existing.name,
+        code: existing.code,
+      };
+
+      const [updatedStation] = await db.update(stations)
+        .set({
+          hallId,
+          updatedAt: new Date(),
+        })
+        .where(eq(stations.id, req.params.id))
+        .returning();
+
+      const afterData = {
+        hallId: updatedStation.hallId,
+        name: updatedStation.name,
+        code: updatedStation.code,
+      };
+
+      // Write activity log for station move
+      await db.insert(activityLogs).values({
+        type: "STATION_MOVED",
+        action: "STATION_MOVED",
+        message: `Station ${existing.name} wurde von Halle ${existing.hallId} nach Halle ${hallId} verschoben`,
+        userId: authUser.id,
+        containerId: existing.id,
+        metadata: {
+          stationId: existing.id,
+          beforeData,
+          afterData,
+        },
+      });
+
+      res.json(updatedStation);
+    } catch (error) {
+      console.error("Failed to move station:", error);
+      res.status(500).json({ error: "Failed to move station" });
+    }
+  });
+
+  // PATCH /api/stands/:id - Edit stand properties (admin only)
+  // Supports: material_id, is_active, station_id (move stand)
+  // Special handling for deactivation: unplaces any box on this stand
+  app.patch("/api/stands/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const authUser = (req as any).authUser;
+      const [existing] = await db.select().from(stands).where(eq(stands.id, req.params.id));
+      if (!existing) {
+        return res.status(404).json({ error: "Stand not found" });
+      }
+
+      const { materialId, isActive, stationId } = req.body;
+
+      // Capture before state
+      const beforeData = {
+        materialId: existing.materialId,
+        isActive: existing.isActive,
+        stationId: existing.stationId,
+        identifier: existing.identifier,
+      };
+
+      // Verify target station if moving stand
+      if (stationId !== undefined && stationId !== existing.stationId) {
+        const [targetStation] = await db.select().from(stations).where(eq(stations.id, stationId));
+        if (!targetStation) {
+          return res.status(404).json({ error: "Target station not found" });
+        }
+      }
+
+      // Handle stand deactivation: unplace any box on this stand
+      let unplacedBoxes: any[] = [];
+      if (isActive === false && existing.isActive === true) {
+        // Find all boxes currently on this stand
+        const boxesOnStand = await db.select().from(boxes).where(
+          and(eq(boxes.standId, existing.id), eq(boxes.isActive, true))
+        );
+
+        for (const box of boxesOnStand) {
+          const [updatedBox] = await db.update(boxes)
+            .set({
+              standId: null,
+              status: "IN_TRANSIT",
+              updatedAt: new Date(),
+            })
+            .where(eq(boxes.id, box.id))
+            .returning();
+
+          unplacedBoxes.push(updatedBox);
+
+          // Write activity log for box unplacement due to stand deactivation
+          await db.insert(activityLogs).values({
+            type: "BOX_UNPLACED_DUE_TO_STAND_DEACTIVATION",
+            action: "BOX_UNPLACED_DUE_TO_STAND_DEACTIVATION",
+            message: `Box ${box.serial} wurde automatisch vom Stellplatz ${existing.identifier} entfernt (Stellplatz deaktiviert)`,
+            userId: authUser.id,
+            containerId: box.id,
+            metadata: {
+              boxId: box.id,
+              boxSerial: box.serial,
+              standId: existing.id,
+              standIdentifier: existing.identifier,
+              previousStatus: box.status,
+              newStatus: "IN_TRANSIT",
+            },
+          });
+        }
+      }
+
+      // Update stand
+      const [updatedStand] = await db.update(stands)
+        .set({
+          ...(materialId !== undefined && { materialId }),
+          ...(isActive !== undefined && { isActive }),
+          ...(stationId !== undefined && { stationId }),
+          updatedAt: new Date(),
+        })
+        .where(eq(stands.id, req.params.id))
+        .returning();
+
+      const afterData = {
+        materialId: updatedStand.materialId,
+        isActive: updatedStand.isActive,
+        stationId: updatedStand.stationId,
+        identifier: updatedStand.identifier,
+      };
+
+      // Determine the appropriate action type for logging
+      let actionType = "STAND_UPDATED";
+      let actionMessage = `Stand ${existing.identifier} wurde aktualisiert`;
+
+      if (stationId !== undefined && stationId !== existing.stationId) {
+        actionType = "STAND_MOVED";
+        actionMessage = `Stand ${existing.identifier} wurde von Station ${existing.stationId} nach Station ${stationId} verschoben`;
+      } else if (isActive === false && existing.isActive === true) {
+        actionType = "STAND_DEACTIVATED";
+        actionMessage = `Stand ${existing.identifier} wurde deaktiviert${unplacedBoxes.length > 0 ? ` (${unplacedBoxes.length} Box(en) entfernt)` : ""}`;
+      }
+
+      // Write activity log for stand update
+      await db.insert(activityLogs).values({
+        type: actionType,
+        action: actionType,
+        message: actionMessage,
+        userId: authUser.id,
+        containerId: existing.id,
+        metadata: {
+          standId: existing.id,
+          beforeData,
+          afterData,
+          unplacedBoxCount: unplacedBoxes.length,
+          unplacedBoxIds: unplacedBoxes.map(b => b.id),
+        },
+      });
+
+      res.json({
+        ...updatedStand,
+        unplacedBoxes: unplacedBoxes.length > 0 ? unplacedBoxes : undefined,
+      });
+    } catch (error) {
+      console.error("Failed to update stand:", error);
+      res.status(500).json({ error: "Failed to update stand" });
+    }
+  });
+
+  // ----------------------------------------------------------------------------
   // BOXES CRUD
   // ----------------------------------------------------------------------------
 

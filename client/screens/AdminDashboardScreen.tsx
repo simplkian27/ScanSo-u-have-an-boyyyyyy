@@ -281,6 +281,18 @@ export default function AdminDashboardScreen() {
               </ThemedText>
             </View>
           </Button>
+
+          <Button
+            style={[styles.secondaryButton, { backgroundColor: theme.cardSurface, borderColor: theme.border }]}
+            onPress={() => navigation.navigate("LayoutManagement")}
+          >
+            <View style={styles.actionContent}>
+              <Feather name="layout" size={20} color={theme.primary} />
+              <ThemedText type="body" style={[styles.secondaryText, { color: theme.primary }]}>
+                Layout-Verwaltung
+              </ThemedText>
+            </View>
+          </Button>
         </View>
 
         <Pressable
