@@ -442,7 +442,7 @@ async function generateFlexibleScheduledTasks() {
         }
         
         const dateStr = formatDateInTimezone(targetDate, timezone);
-        const dedupKey = `SCHEDULED:${schedule.id}:${dateStr}`;
+        const dedupKey = `SCHED:${schedule.id}:${dateStr}`;
         
         // Create scheduled date at the specified time
         const [hours, minutes] = (schedule.timeLocal || '06:00').split(':').map(Number);
@@ -1008,7 +1008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const today = getTodayBerlin();
       const todayStr = formatDateBerlin(new Date());
-      const dedupKey = `SCHEDULED:${schedule.schedule.id}:${todayStr}`;
+      const dedupKey = `SCHED:${schedule.schedule.id}:${todayStr}`;
 
       const [existingTask] = await db.select().from(tasks).where(eq(tasks.dedupKey, dedupKey));
       if (existingTask) {
@@ -3964,6 +3964,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AUTOMOTIVE TASK ENDPOINTS
   // ----------------------------------------------------------------------------
 
+  // GET /api/automotive/tasks - List all tasks with global visibility (no user filtering)
+  // Query params: status, materialId, stationId, hallId, from, to, scheduledFor
+  app.get("/api/automotive/tasks", requireAuth, async (req, res) => {
+    try {
+      const { status, materialId, stationId, hallId, from, to, scheduledFor } = req.query;
+      
+      const conditions: any[] = [];
+      
+      // Status filter
+      if (status) {
+        conditions.push(eq(tasks.status, status as string));
+      }
+      
+      // Material filter
+      if (materialId) {
+        conditions.push(eq(tasks.materialType, materialId as string));
+      }
+      
+      // Exact scheduledFor filter (for specific date match)
+      if (scheduledFor) {
+        const scheduledDate = new Date(scheduledFor as string);
+        scheduledDate.setHours(0, 0, 0, 0);
+        const nextDay = new Date(scheduledDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        conditions.push(gte(tasks.scheduledFor, scheduledDate));
+        conditions.push(lte(tasks.scheduledFor, nextDay));
+      }
+      
+      // Date range filter (using scheduledFor)
+      if (from) {
+        conditions.push(gte(tasks.scheduledFor, new Date(from as string)));
+      }
+      if (to) {
+        conditions.push(lte(tasks.scheduledFor, new Date(to as string)));
+      }
+      
+      // Build query with joins for stationId and hallId filtering
+      let query = db
+        .select({
+          task: tasks,
+          stand: stands,
+          station: stations,
+          hall: halls,
+          material: materials,
+          claimedByUser: users,
+        })
+        .from(tasks)
+        .leftJoin(stands, eq(tasks.standId, stands.id))
+        .leftJoin(stations, eq(stands.stationId, stations.id))
+        .leftJoin(halls, eq(stations.hallId, halls.id))
+        .leftJoin(materials, eq(tasks.materialType, materials.id))
+        .leftJoin(users, eq(tasks.claimedByUserId, users.id));
+      
+      // Station filter (needs join)
+      if (stationId) {
+        conditions.push(eq(stands.stationId, stationId as string));
+      }
+      
+      // Hall filter (needs join)
+      if (hallId) {
+        conditions.push(eq(stations.hallId, hallId as string));
+      }
+      
+      const result = conditions.length > 0
+        ? await query.where(and(...conditions)).orderBy(desc(tasks.createdAt))
+        : await query.orderBy(desc(tasks.createdAt));
+      
+      // Flatten the result for easier consumption
+      const tasksWithDetails = result.map(row => ({
+        ...row.task,
+        stand: row.stand,
+        station: row.station,
+        hall: row.hall,
+        material: row.material,
+        claimedByUser: row.claimedByUser ? {
+          id: row.claimedByUser.id,
+          name: row.claimedByUser.name,
+          email: row.claimedByUser.email,
+        } : null,
+      }));
+      
+      res.json(tasksWithDetails);
+    } catch (error) {
+      console.error("Failed to fetch automotive tasks:", error);
+      res.status(500).json({ error: "Failed to fetch automotive tasks" });
+    }
+  });
+
   // POST /api/automotive/tasks - Create automotive task
   app.post("/api/automotive/tasks", requireAuth, async (req, res) => {
     try {
@@ -4702,13 +4790,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             materialName: materials.name,
             totalWeightKg: sum(tasks.weightKg),
             taskCount: count(),
+            avgLeadTimeMinutes: avg(sql`EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.createdAt})) / 60`),
           })
           .from(tasks)
           .leftJoin(materials, eq(tasks.materialType, materials.id))
           .where(and(...conditions))
           .groupBy(tasks.materialType, materials.name);
 
-        res.json({ data: result, groupBy });
+        res.json(result);
       } else {
         let dateExpr: any;
         if (groupBy === "day") {
@@ -4762,20 +4851,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .select({
           stationId: stands.stationId,
           stationName: stations.name,
-          stationCode: stations.code,
-          materialId: tasks.materialType,
-          materialName: materials.name,
-          totalWeightKg: sum(tasks.weightKg),
           taskCount: count(),
+          totalWeightKg: sum(tasks.weightKg),
+          avgLeadTimeMinutes: avg(sql`EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.createdAt})) / 60`),
         })
         .from(tasks)
         .innerJoin(stands, eq(tasks.standId, stands.id))
         .innerJoin(stations, eq(stands.stationId, stations.id))
-        .leftJoin(materials, eq(tasks.materialType, materials.id))
         .where(and(...conditions))
-        .groupBy(stands.stationId, stations.name, stations.code, tasks.materialType, materials.name);
+        .groupBy(stands.stationId, stations.name);
 
-      res.json({ data: result });
+      res.json(result);
     } catch (error) {
       console.error("[Analytics] Stations error:", error);
       res.status(500).json({ error: "Failed to fetch stations analytics" });
@@ -4804,21 +4890,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .select({
           hallId: stations.hallId,
           hallName: halls.name,
-          hallCode: halls.code,
-          materialId: tasks.materialType,
-          materialName: materials.name,
-          totalWeightKg: sum(tasks.weightKg),
           taskCount: count(),
+          totalWeightKg: sum(tasks.weightKg),
+          avgLeadTimeMinutes: avg(sql`EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.createdAt})) / 60`),
         })
         .from(tasks)
         .innerJoin(stands, eq(tasks.standId, stands.id))
         .innerJoin(stations, eq(stands.stationId, stations.id))
         .innerJoin(halls, eq(stations.hallId, halls.id))
-        .leftJoin(materials, eq(tasks.materialType, materials.id))
         .where(and(...conditions))
-        .groupBy(stations.hallId, halls.name, halls.code, tasks.materialType, materials.name);
+        .groupBy(stations.hallId, halls.name);
 
-      res.json({ data: result });
+      res.json(result);
     } catch (error) {
       console.error("[Analytics] Halls error:", error);
       res.status(500).json({ error: "Failed to fetch halls analytics" });
@@ -4943,11 +5026,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (by === "material") {
         const result = await db
           .select({
-            materialId: tasks.materialType,
-            materialName: materials.name,
-            avgOpenToPickedUpHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.pickedUpAt} - ${tasks.createdAt})) / 3600`),
-            avgPickedUpToDroppedOffHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.droppedOffAt} - ${tasks.pickedUpAt})) / 3600`),
-            avgDroppedOffToDisposedHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.droppedOffAt})) / 3600`),
+            groupId: tasks.materialType,
+            groupName: materials.name,
+            avgLeadTimeMinutes: avg(sql`EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.createdAt})) / 60`),
+            minLeadTimeMinutes: sql`MIN(EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.createdAt})) / 60)`,
+            maxLeadTimeMinutes: sql`MAX(EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.createdAt})) / 60)`,
             taskCount: count(),
           })
           .from(tasks)
@@ -4955,15 +5038,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(and(...conditions))
           .groupBy(tasks.materialType, materials.name);
 
-        res.json({ data: result, by: "material" });
+        res.json(result);
       } else if (by === "station") {
         const result = await db
           .select({
-            stationId: stands.stationId,
-            stationName: stations.name,
-            avgOpenToPickedUpHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.pickedUpAt} - ${tasks.createdAt})) / 3600`),
-            avgPickedUpToDroppedOffHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.droppedOffAt} - ${tasks.pickedUpAt})) / 3600`),
-            avgDroppedOffToDisposedHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.droppedOffAt})) / 3600`),
+            groupId: stands.stationId,
+            groupName: stations.name,
+            avgLeadTimeMinutes: avg(sql`EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.createdAt})) / 60`),
+            minLeadTimeMinutes: sql`MIN(EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.createdAt})) / 60)`,
+            maxLeadTimeMinutes: sql`MAX(EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.createdAt})) / 60)`,
             taskCount: count(),
           })
           .from(tasks)
@@ -4972,19 +5055,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(and(...conditions))
           .groupBy(stands.stationId, stations.name);
 
-        res.json({ data: result, by: "station" });
+        res.json(result);
       } else {
         const result = await db
           .select({
-            avgOpenToPickedUpHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.pickedUpAt} - ${tasks.createdAt})) / 3600`),
-            avgPickedUpToDroppedOffHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.droppedOffAt} - ${tasks.pickedUpAt})) / 3600`),
-            avgDroppedOffToDisposedHours: avg(sql`EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.droppedOffAt})) / 3600`),
+            groupId: sql`'overall'`.as("groupId"),
+            groupName: sql`'All Tasks'`.as("groupName"),
+            avgLeadTimeMinutes: avg(sql`EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.createdAt})) / 60`),
+            minLeadTimeMinutes: sql`MIN(EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.createdAt})) / 60)`,
+            maxLeadTimeMinutes: sql`MAX(EXTRACT(EPOCH FROM (${tasks.disposedAt} - ${tasks.createdAt})) / 60)`,
             taskCount: count(),
           })
           .from(tasks)
           .where(and(...conditions));
 
-        res.json({ data: result[0] || null, by: "overall" });
+        res.json(result);
       }
     } catch (error) {
       console.error("[Analytics] Lead times error:", error);
@@ -5006,23 +5091,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const result = await db
         .select({
-          id: tasks.id,
+          taskId: tasks.id,
           title: tasks.title,
           status: tasks.status,
           createdAt: tasks.createdAt,
-          pickedUpAt: tasks.pickedUpAt,
-          droppedOffAt: tasks.droppedOffAt,
+          updatedAt: tasks.updatedAt,
           standId: tasks.standId,
           standIdentifier: stands.identifier,
-          stationName: stations.name,
-          materialName: materials.name,
-          claimedByUserName: users.name,
         })
         .from(tasks)
         .leftJoin(stands, eq(tasks.standId, stands.id))
-        .leftJoin(stations, eq(stands.stationId, stations.id))
-        .leftJoin(materials, eq(tasks.materialType, materials.id))
-        .leftJoin(users, eq(tasks.claimedByUserId, users.id))
         .where(
           and(
             inArray(tasks.status, activeStatuses),
@@ -5031,25 +5109,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
         .orderBy(tasks.updatedAt);
 
-      const groupedByStatus: Record<string, typeof result> = {};
-      for (const task of result) {
-        if (!groupedByStatus[task.status]) {
-          groupedByStatus[task.status] = [];
-        }
-        groupedByStatus[task.status].push(task);
-      }
-
-      const summary = Object.entries(groupedByStatus).map(([status, taskList]) => ({
-        status,
-        count: taskList.length,
+      const now = Date.now();
+      const tasksWithHours = result.map(task => ({
+        ...task,
+        hoursInStatus: task.updatedAt ? Math.round((now - new Date(task.updatedAt).getTime()) / (1000 * 60 * 60)) : null,
       }));
 
-      res.json({
-        olderThanHours,
-        cutoffTime: cutoffTime.toISOString(),
-        summary,
-        data: groupedByStatus,
-      });
+      res.json(tasksWithHours);
     } catch (error) {
       console.error("[Analytics] Backlog error:", error);
       res.status(500).json({ error: "Failed to fetch backlog analytics" });
