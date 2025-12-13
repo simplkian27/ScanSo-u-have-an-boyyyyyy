@@ -1,8 +1,8 @@
 import React from "react";
-import { View, StyleSheet, FlatList, RefreshControl, Pressable } from "react-native";
+import { View, StyleSheet, FlatList, RefreshControl, Pressable, Alert, Platform } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -12,16 +12,49 @@ import { EmptyState } from "@/components/EmptyState";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
+import { apiRequest } from "@/lib/query-client";
 import { WarehouseContainer } from "@shared/schema";
 
 export default function WarehouseScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
+  const queryClient = useQueryClient();
 
   const { data: containers = [], isLoading, refetch, isRefetching } = useQuery<WarehouseContainer[]>({
     queryKey: ["/api/containers/warehouse"],
   });
+
+  const emptyMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/warehouse-containers/${id}/empty`);
+      return res.json();
+    },
+    onSuccess: () => {
+      Alert.alert("Erfolg", "Container wurde geleert");
+      queryClient.invalidateQueries({ queryKey: ["/api/containers/warehouse"] });
+    },
+    onError: (error: Error) => {
+      Alert.alert("Fehler", error.message || "Container konnte nicht geleert werden");
+    },
+  });
+
+  const handleEmpty = (container: WarehouseContainer) => {
+    if (Platform.OS === "web") {
+      if (confirm(`Container "${container.materialType}" wirklich leeren?`)) {
+        emptyMutation.mutate(container.id);
+      }
+    } else {
+      Alert.alert(
+        "Container leeren",
+        `Container "${container.materialType}" wirklich leeren? Aktuelle Menge: ${container.currentAmount.toFixed(0)} ${container.quantityUnit}`,
+        [
+          { text: "Abbrechen", style: "cancel" },
+          { text: "Leeren", style: "destructive", onPress: () => emptyMutation.mutate(container.id) },
+        ]
+      );
+    }
+  };
 
   const getFillPercentage = (container: WarehouseContainer) => {
     if (container.maxCapacity <= 0) return 0;
@@ -92,9 +125,23 @@ export default function WarehouseScreen() {
                   ]} 
                 />
               </View>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {item.currentAmount.toFixed(0)} / {item.maxCapacity} {item.quantityUnit}
-              </ThemedText>
+              <View style={styles.capacityRow}>
+                <ThemedText type="small" style={{ color: theme.textSecondary, flex: 1 }}>
+                  {item.currentAmount.toFixed(0)} / {item.maxCapacity} {item.quantityUnit}
+                </ThemedText>
+                {item.currentAmount > 0 ? (
+                  <Pressable
+                    style={[styles.emptyButton, { backgroundColor: isDark ? theme.errorLight : `${theme.error}15` }]}
+                    onPress={() => handleEmpty(item)}
+                    disabled={emptyMutation.isPending}
+                  >
+                    <Feather name="trash-2" size={14} color={theme.error} />
+                    <ThemedText type="small" style={{ color: theme.error, marginLeft: Spacing.xs }}>
+                      {emptyMutation.isPending ? "..." : "Leeren"}
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
           </View>
         </View>
@@ -187,5 +234,17 @@ const styles = StyleSheet.create({
   capacityFill: {
     height: "100%",
     borderRadius: BorderRadius.xs,
+  },
+  capacityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  emptyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
   },
 });
