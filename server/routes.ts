@@ -6657,10 +6657,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============================================================================
   // QR CENTER ENDPOINTS
+  // QR-Center only shows: STATION, STAND, BOX (no HALL per requirements)
   // ============================================================================
 
-  const QR_ENTITY_TYPES = ["HALL", "STATION", "STAND", "BOX", "WAREHOUSE_CONTAINER"] as const;
+  const QR_ENTITY_TYPES = ["STATION", "STAND", "BOX"] as const;
   type QREntityType = typeof QR_ENTITY_TYPES[number];
+
+  interface QrEntityRow {
+    id: string;
+    title: string;
+    subtitle: string | null;
+    qr_code: string | null;
+    has_qr: boolean;
+  }
 
   function generateQrCode(type: QREntityType, id: string, version?: string): string {
     const payload: { t: string; id: string; v?: string } = { t: type, id };
@@ -6676,9 +6685,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   /**
    * GET /api/qr/entities
-   * List entities with QR codes, with optional filtering by type and search query
-   * Query params: type (HALL|STATION|STAND|BOX|WAREHOUSE_CONTAINER), query (search string)
-   * Returns: { id, displayName, qrCode, extraMeta }[]
+   * List entities with QR codes for QR-Center (Station, Stand, Box only - no Halls)
+   * Query params: type (STATION|STAND|BOX), query (search string)
+   * Returns unified QrEntityRow[]: { id, title, subtitle, qr_code, has_qr }
    */
   app.get("/api/qr/entities", requireAuth, async (req, res) => {
     try {
@@ -6690,30 +6699,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: `Invalid type. Must be one of: ${QR_ENTITY_TYPES.join(", ")}` });
       }
 
-      const results: { id: string; displayName: string; qrCode: string | null; extraMeta: any }[] = [];
+      const results: QrEntityRow[] = [];
       const searchPattern = searchQuery ? `%${searchQuery}%` : null;
-
-      // Halls - search by code/name
-      if (!entityType || entityType === "HALL") {
-        let hallQuery = db.select().from(halls).where(eq(halls.isActive, true));
-        if (searchPattern) {
-          hallQuery = db.select().from(halls).where(
-            and(
-              eq(halls.isActive, true),
-              or(ilike(halls.code, searchPattern), ilike(halls.name, searchPattern))
-            )
-          );
-        }
-        const hallsResult = await hallQuery;
-        for (const h of hallsResult) {
-          results.push({
-            id: h.id,
-            displayName: `${h.code} - ${h.name}`,
-            qrCode: h.qrCode,
-            extraMeta: { type: "HALL", code: h.code, name: h.name },
-          });
-        }
-      }
 
       // Stations - search by code/name
       if (!entityType || entityType === "STATION") {
@@ -6727,12 +6714,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
         }
         const stationsResult = await stationQuery;
+        const hallsForStations = await db.select().from(halls);
+        const hallMap = new Map(hallsForStations.map(h => [h.id, h]));
+        
         for (const s of stationsResult) {
+          const hall = hallMap.get(s.hallId);
           results.push({
             id: s.id,
-            displayName: `${s.code} - ${s.name}`,
-            qrCode: s.qrCode,
-            extraMeta: { type: "STATION", code: s.code, name: s.name, hallId: s.hallId },
+            title: `${s.code} - ${s.name}`,
+            subtitle: hall ? `Halle: ${hall.name}` : null,
+            qr_code: s.qrCode || null,
+            has_qr: !!s.qrCode,
           });
         }
       }
@@ -6746,12 +6738,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
         }
         const standsResult = await standQuery;
+        const stationsForStands = await db.select().from(stations);
+        const stationMap = new Map(stationsForStands.map(st => [st.id, st]));
+        const materialsForStands = await db.select().from(materials);
+        const materialMap = new Map(materialsForStands.map(m => [m.id, m]));
+        
         for (const st of standsResult) {
+          const station = stationMap.get(st.stationId);
+          const material = st.materialId ? materialMap.get(st.materialId) : null;
           results.push({
             id: st.id,
-            displayName: `Stand ${st.identifier}`,
-            qrCode: st.qrCode,
-            extraMeta: { type: "STAND", identifier: st.identifier, stationId: st.stationId, materialId: st.materialId },
+            title: `Stellplatz ${st.identifier}`,
+            subtitle: station ? `Station: ${station.name}${material ? ` | Material: ${material.name}` : ''}` : null,
+            qr_code: st.qrCode || null,
+            has_qr: !!st.qrCode,
           });
         }
       }
@@ -6768,35 +6768,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const b of boxesResult) {
           results.push({
             id: b.id,
-            displayName: `Box ${b.serial}`,
-            qrCode: b.qrCode,
-            extraMeta: { type: "BOX", serial: b.serial, status: b.status },
-          });
-        }
-      }
-
-      // Warehouse Containers - search by materialType/zone/location
-      if (!entityType || entityType === "WAREHOUSE_CONTAINER") {
-        let wcQuery = db.select().from(warehouseContainers).where(eq(warehouseContainers.isActive, true));
-        if (searchPattern) {
-          wcQuery = db.select().from(warehouseContainers).where(
-            and(
-              eq(warehouseContainers.isActive, true),
-              or(
-                ilike(warehouseContainers.materialType, searchPattern),
-                ilike(warehouseContainers.zone, searchPattern),
-                ilike(warehouseContainers.location, searchPattern)
-              )
-            )
-          );
-        }
-        const wcResult = await wcQuery;
-        for (const wc of wcResult) {
-          results.push({
-            id: wc.id,
-            displayName: `${wc.materialType} @ ${wc.zone}/${wc.location}`,
-            qrCode: wc.qrCode,
-            extraMeta: { type: "WAREHOUSE_CONTAINER", materialType: wc.materialType, zone: wc.zone, location: wc.location },
+            title: `Box ${b.serial}`,
+            subtitle: `Status: ${b.status}`,
+            qr_code: b.qrCode || null,
+            has_qr: !!b.qrCode,
           });
         }
       }
@@ -6811,12 +6786,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   /**
    * POST /api/qr/ensure
    * Ensure entity has a QR code - generate if empty, otherwise no-op
-   * Body: { type, id }
-   * Returns: { qrCode }
+   * Body: { type: "STATION"|"STAND"|"BOX", id: string }
+   * Returns: { qr_code: string }
+   * Role: Open to all authenticated users
    */
   app.post("/api/qr/ensure", requireAuth, async (req, res) => {
     try {
       const { type, id } = req.body;
+      const authUser = (req as any).authUser;
 
       if (!type || !id) {
         return res.status(400).json({ error: "type and id are required" });
@@ -6828,30 +6805,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let existingQrCode: string | null = null;
       let entityFound = false;
+      let entityDisplayName = "";
+      let wasGenerated = false;
 
       switch (type) {
-        case "HALL": {
-          const [hall] = await db.select().from(halls).where(eq(halls.id, id));
-          if (hall) {
-            entityFound = true;
-            existingQrCode = hall.qrCode;
-            if (!existingQrCode) {
-              const newQrCode = generateQrCode("HALL", id);
-              await db.update(halls).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(halls.id, id));
-              existingQrCode = newQrCode;
-            }
-          }
-          break;
-        }
         case "STATION": {
           const [station] = await db.select().from(stations).where(eq(stations.id, id));
           if (station) {
             entityFound = true;
+            entityDisplayName = `${station.code} - ${station.name}`;
             existingQrCode = station.qrCode;
             if (!existingQrCode) {
               const newQrCode = generateQrCode("STATION", id);
               await db.update(stations).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(stations.id, id));
               existingQrCode = newQrCode;
+              wasGenerated = true;
             }
           }
           break;
@@ -6860,11 +6828,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const [stand] = await db.select().from(stands).where(eq(stands.id, id));
           if (stand) {
             entityFound = true;
+            entityDisplayName = `Stellplatz ${stand.identifier}`;
             existingQrCode = stand.qrCode;
             if (!existingQrCode) {
               const newQrCode = generateQrCode("STAND", id);
               await db.update(stands).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(stands.id, id));
               existingQrCode = newQrCode;
+              wasGenerated = true;
             }
           }
           break;
@@ -6873,24 +6843,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const [box] = await db.select().from(boxes).where(eq(boxes.id, id));
           if (box) {
             entityFound = true;
+            entityDisplayName = `Box ${box.serial}`;
             existingQrCode = box.qrCode;
             if (!existingQrCode) {
               const newQrCode = generateQrCode("BOX", id);
               await db.update(boxes).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(boxes.id, id));
               existingQrCode = newQrCode;
-            }
-          }
-          break;
-        }
-        case "WAREHOUSE_CONTAINER": {
-          const [wc] = await db.select().from(warehouseContainers).where(eq(warehouseContainers.id, id));
-          if (wc) {
-            entityFound = true;
-            existingQrCode = wc.qrCode;
-            if (!existingQrCode) {
-              const newQrCode = generateQrCode("WAREHOUSE_CONTAINER", id);
-              await db.update(warehouseContainers).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(warehouseContainers.id, id));
-              existingQrCode = newQrCode;
+              wasGenerated = true;
             }
           }
           break;
@@ -6901,7 +6860,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: `${type} with id ${id} not found` });
       }
 
-      res.json({ qrCode: existingQrCode });
+      // Log audit event if QR was generated
+      if (wasGenerated) {
+        await db.insert(activityLogs).values({
+          type: "QR",
+          action: "QR_ENSURE",
+          message: `QR-Code für ${type} "${entityDisplayName}" generiert`,
+          userId: authUser?.id,
+          metadata: {
+            entityType: type,
+            entityId: id,
+            entityDisplayName,
+            newQrCode: existingQrCode,
+          },
+        });
+      }
+
+      res.json({ qr_code: existingQrCode });
     } catch (error) {
       console.error("[QRCenter] Failed to ensure QR code:", error);
       res.status(500).json({ error: "Failed to ensure QR code" });
@@ -6911,16 +6886,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   /**
    * POST /api/qr/regenerate
    * Regenerate QR code for an entity (Admin only)
-   * Body: { type, id }
-   * Returns: { qrCode, oldQrCode }
+   * Body: { type: "STATION"|"STAND"|"BOX", id: string, confirm: true }
+   * Returns: { qr_code: string, old_qr_code: string | null }
+   * Role: Admin only with confirm flag
    */
   app.post("/api/qr/regenerate", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const { type, id } = req.body;
+      const { type, id, confirm } = req.body;
       const authUser = (req as any).authUser;
 
       if (!type || !id) {
         return res.status(400).json({ error: "type and id are required" });
+      }
+
+      if (!confirm) {
+        return res.status(400).json({ error: "confirm: true is required to regenerate QR code" });
       }
 
       if (!QR_ENTITY_TYPES.includes(type)) {
@@ -6935,17 +6915,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const version = generateRandomVersion();
 
       switch (type) {
-        case "HALL": {
-          const [hall] = await db.select().from(halls).where(eq(halls.id, id));
-          if (hall) {
-            entityFound = true;
-            oldQrCode = hall.qrCode;
-            entityDisplayName = `${hall.code} - ${hall.name}`;
-            newQrCode = generateQrCode("HALL", id, version);
-            await db.update(halls).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(halls.id, id));
-          }
-          break;
-        }
         case "STATION": {
           const [station] = await db.select().from(stations).where(eq(stations.id, id));
           if (station) {
@@ -6962,7 +6931,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (stand) {
             entityFound = true;
             oldQrCode = stand.qrCode;
-            entityDisplayName = `Stand ${stand.identifier}`;
+            entityDisplayName = `Stellplatz ${stand.identifier}`;
             newQrCode = generateQrCode("STAND", id, version);
             await db.update(stands).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(stands.id, id));
           }
@@ -6979,26 +6948,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           break;
         }
-        case "WAREHOUSE_CONTAINER": {
-          const [wc] = await db.select().from(warehouseContainers).where(eq(warehouseContainers.id, id));
-          if (wc) {
-            entityFound = true;
-            oldQrCode = wc.qrCode;
-            entityDisplayName = `${wc.materialType} @ ${wc.zone}/${wc.location}`;
-            newQrCode = generateQrCode("WAREHOUSE_CONTAINER", id, version);
-            await db.update(warehouseContainers).set({ qrCode: newQrCode, updatedAt: new Date() }).where(eq(warehouseContainers.id, id));
-          }
-          break;
-        }
       }
 
       if (!entityFound) {
         return res.status(404).json({ error: `${type} with id ${id} not found` });
       }
 
-      // Log to activityLogs
+      // Log audit event
       await db.insert(activityLogs).values({
-        type: "MANUAL_EDIT",
+        type: "QR",
         action: "QR_REGENERATE",
         message: `QR-Code für ${type} "${entityDisplayName}" neu generiert`,
         userId: authUser.id,
@@ -7012,7 +6970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
 
-      res.json({ qrCode: newQrCode!, oldQrCode });
+      res.json({ qr_code: newQrCode!, old_qr_code: oldQrCode });
     } catch (error) {
       console.error("[QRCenter] Failed to regenerate QR code:", error);
       res.status(500).json({ error: "Failed to regenerate QR code" });

@@ -27,41 +27,42 @@ import { EmptyState } from "@/components/EmptyState";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 
-type EntityType = "HALL" | "STATION" | "STAND" | "BOX" | "WAREHOUSE_CONTAINER";
+type EntityType = "STATION" | "STAND" | "BOX";
 
-interface ApiEntity {
+interface QrEntityRow {
   id: string;
-  displayName: string;
-  qrCode: string | null;
-  extraMeta: { type: EntityType; [key: string]: unknown };
+  title: string;
+  subtitle: string | null;
+  qr_code: string | null;
+  has_qr: boolean;
 }
 
 interface Entity {
   id: string;
   name: string;
+  subtitle: string | null;
   type: EntityType;
-  qrCode?: string;
-  metadata?: Record<string, unknown>;
+  qrCode: string | null;
+  hasQr: boolean;
 }
 
-function mapApiEntityToEntity(apiEntity: ApiEntity): Entity {
+function mapApiEntityToEntity(apiEntity: QrEntityRow, type: EntityType): Entity {
   return {
     id: apiEntity.id,
-    name: apiEntity.displayName || "Unbekannt",
-    type: apiEntity.extraMeta?.type || "HALL",
-    qrCode: apiEntity.qrCode || undefined,
-    metadata: apiEntity.extraMeta,
+    name: apiEntity.title || "Unbekannt",
+    subtitle: apiEntity.subtitle,
+    type,
+    qrCode: apiEntity.qr_code,
+    hasQr: apiEntity.has_qr,
   };
 }
 
 const ENTITY_TYPES: { key: EntityType; label: string; icon: keyof typeof Feather.glyphMap }[] = [
-  { key: "HALL", label: "Halle", icon: "home" },
   { key: "STATION", label: "Station", icon: "map-pin" },
   { key: "STAND", label: "Stellplatz", icon: "square" },
   { key: "BOX", label: "Box", icon: "box" },
-  { key: "WAREHOUSE_CONTAINER", label: "Lager", icon: "package" },
 ];
 
 export default function QRCenterScreen() {
@@ -72,25 +73,26 @@ export default function QRCenterScreen() {
   const queryClient = useQueryClient();
   const viewShotRef = useRef<ViewShot>(null);
 
-  const [selectedType, setSelectedType] = useState<EntityType>("HALL");
+  const [selectedType, setSelectedType] = useState<EntityType>("STATION");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  const { data: entities, isLoading, refetch, isRefetching } = useQuery<Entity[]>({
-    queryKey: ["/api/qr/entities", { type: selectedType, query: searchQuery }],
-    queryFn: async () => {
-      const url = new URL("/api/qr/entities", getApiUrl());
-      url.searchParams.set("type", selectedType);
-      if (searchQuery) {
-        url.searchParams.set("query", searchQuery);
-      }
-      const response = await fetch(url.toString(), { credentials: "include" });
-      if (!response.ok) throw new Error("Failed to fetch entities");
-      const apiEntities: ApiEntity[] = await response.json();
-      return apiEntities.map(mapApiEntityToEntity);
-    },
+  const queryParams: Record<string, string> = { type: selectedType };
+  if (searchQuery) {
+    queryParams.query = searchQuery;
+  }
+
+  const { data: apiEntities, isLoading, refetch, isRefetching } = useQuery<QrEntityRow[] | null>({
+    queryKey: ["/api/qr/entities", queryParams],
   });
+
+  const entities = apiEntities?.map((e) => mapApiEntityToEntity(e, selectedType)) ?? [];
+
+  const handleTypeChange = useCallback((type: EntityType) => {
+    setSelectedType(type);
+    setSearchQuery("");
+  }, []);
 
   const ensureMutation = useMutation({
     mutationFn: async ({ type, id }: { type: EntityType; id: string }) => {
@@ -99,18 +101,20 @@ export default function QRCenterScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/qr/entities"] });
+      refetch();
     },
   });
 
   const regenerateMutation = useMutation({
     mutationFn: async ({ type, id }: { type: EntityType; id: string }) => {
-      const response = await apiRequest("POST", "/api/qr/regenerate", { type, id });
+      const response = await apiRequest("POST", "/api/qr/regenerate", { type, id, confirm: true });
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/qr/entities"] });
       setModalVisible(false);
       setSelectedEntity(null);
+      refetch();
     },
   });
 
@@ -198,11 +202,15 @@ export default function QRCenterScreen() {
     return found?.label || type;
   };
 
+  const handleEnsureQr = useCallback((entity: Entity) => {
+    ensureMutation.mutate({ type: entity.type, id: entity.id });
+  }, [ensureMutation]);
+
   const renderEntityItem = useCallback(
     ({ item }: { item: Entity }) => (
       <Card
         style={[styles.entityCard, { backgroundColor: theme.cardSurface }]}
-        onPress={() => handleEntityPress(item)}
+        onPress={() => item.hasQr ? handleEntityPress(item) : handleEnsureQr(item)}
       >
         <View style={styles.entityRow}>
           <View style={styles.entityInfo}>
@@ -210,26 +218,43 @@ export default function QRCenterScreen() {
               {item.name}
             </ThemedText>
             <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary }}>
-              {getEntityTypeLabel(item.type)}
+              {item.subtitle || getEntityTypeLabel(item.type)}
             </ThemedText>
           </View>
-          <View style={[styles.qrPreview, { backgroundColor: theme.backgroundDefault }]}>
-            {item.qrCode ? (
-              <QRCode
-                value={item.qrCode}
-                size={48}
-                backgroundColor="transparent"
-                color={theme.text}
-              />
-            ) : (
-              <Feather name="help-circle" size={24} color={theme.textTertiary} />
-            )}
-          </View>
-          <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+          {item.hasQr && item.qrCode ? (
+            <>
+              <View style={[styles.qrPreview, { backgroundColor: theme.backgroundDefault }]}>
+                <QRCode
+                  value={item.qrCode}
+                  size={48}
+                  backgroundColor="transparent"
+                  color={theme.text}
+                />
+              </View>
+              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+            </>
+          ) : (
+            <>
+              <View style={[styles.noQrBadge, { backgroundColor: theme.warning + "20" }]}>
+                <ThemedText type="small" style={{ color: theme.warning }}>
+                  QR fehlt
+                </ThemedText>
+              </View>
+              <Pressable
+                style={[styles.generateButton, { backgroundColor: theme.primary }]}
+                onPress={() => handleEnsureQr(item)}
+              >
+                <Feather name="plus" size={14} color={theme.textOnPrimary} />
+                <ThemedText type="small" style={{ color: theme.textOnPrimary }}>
+                  Generieren
+                </ThemedText>
+              </Pressable>
+            </>
+          )}
         </View>
       </Card>
     ),
-    [theme, handleEntityPress]
+    [theme, handleEntityPress, handleEnsureQr]
   );
 
   const renderTypeSelector = () => (
@@ -251,7 +276,7 @@ export default function QRCenterScreen() {
                 borderColor: isSelected ? theme.primary : theme.border,
               },
             ]}
-            onPress={() => setSelectedType(type.key)}
+            onPress={() => handleTypeChange(type.key)}
           >
             <Feather
               name={type.icon}
@@ -419,7 +444,7 @@ export default function QRCenterScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.accent} />
         </View>
-      ) : entities && entities.length > 0 ? (
+      ) : entities.length > 0 ? (
         <FlatList
           data={entities}
           keyExtractor={(item) => `${item.type}-${item.id}`}
@@ -555,5 +580,18 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     width: "100%",
+  },
+  noQrBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+  },
+  generateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
   },
 });
