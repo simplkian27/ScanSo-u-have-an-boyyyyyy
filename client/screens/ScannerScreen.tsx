@@ -78,6 +78,7 @@ export default function ScannerScreen() {
   const [success, setSuccess] = useState<string | null>(null);
   const [weightInput, setWeightInput] = useState("");
   const [weightError, setWeightError] = useState<string | null>(null);
+  const [pendingStandForPlacement, setPendingStandForPlacement] = useState<StandScanResult | null>(null);
   const scanLock = useRef(false);
 
   const parseQRCode = (rawData: string): string => {
@@ -127,6 +128,23 @@ export default function ScannerScreen() {
     setError(null);
 
     try {
+      // If in placement mode, check if this is a box to place at the pending stand
+      if (pendingStandForPlacement) {
+        let response = await apiRequest("GET", `/api/boxes/qr/${encodeURIComponent(qrCode)}`);
+        if (response.ok) {
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          // Place the box at the pending stand
+          await placeBox(pendingStandForPlacement.stand.qrCode, qrCode);
+          return;
+        } else {
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          setError("Bitte scannen Sie einen gültigen Box QR-Code.");
+          scanLock.current = false;
+          setIsProcessing(false);
+          return;
+        }
+      }
+
       let response = await apiRequest("GET", `/api/boxes/qr/${encodeURIComponent(qrCode)}`);
       if (response.ok) {
         const box: Box = await response.json();
@@ -265,6 +283,81 @@ export default function ScannerScreen() {
     setSuccess(null);
     setWeightInput("");
     setWeightError(null);
+    setPendingStandForPlacement(null);
+    scanLock.current = false;
+  };
+
+  const pickupBox = async (boxQr: string) => {
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const response = await apiRequest("POST", "/api/scan/pickup-box", { boxQr });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.error || "Box abholen fehlgeschlagen.");
+        scanLock.current = false;
+        setIsProcessing(false);
+        return;
+      }
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSuccess("Box erfolgreich abgeholt!");
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/automotive/boxes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/automotive/stands"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+
+      setTimeout(() => {
+        closeModal();
+      }, 1500);
+    } catch (err) {
+      setError("Box abholen fehlgeschlagen. Bitte erneut versuchen.");
+      scanLock.current = false;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const placeBox = async (standQr: string, boxQr: string) => {
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const response = await apiRequest("POST", "/api/scan/place-box", { standQr, boxQr });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.error || "Box platzieren fehlgeschlagen.");
+        setPendingStandForPlacement(null);
+        scanLock.current = false;
+        setIsProcessing(false);
+        return;
+      }
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSuccess("Box erfolgreich am Stellplatz platziert!");
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/automotive/boxes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/automotive/stands"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+
+      setTimeout(() => {
+        closeModal();
+      }, 1500);
+    } catch (err) {
+      setError("Box platzieren fehlgeschlagen. Bitte erneut versuchen.");
+      setPendingStandForPlacement(null);
+      scanLock.current = false;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const enterPlacementMode = (standResult: StandScanResult) => {
+    setPendingStandForPlacement(standResult);
+    setScanResult(null);
     scanLock.current = false;
   };
 
@@ -385,6 +478,24 @@ export default function ScannerScreen() {
           <Button onPress={closeModal} style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary }]}>
             Schließen
           </Button>
+          {box.status === "AT_STAND" && box.qrCode ? (
+            <Button
+              onPress={() => pickupBox(box.qrCode)}
+              disabled={isProcessing}
+              style={[styles.actionButton, { backgroundColor: theme.warning }]}
+            >
+              {isProcessing ? (
+                <ActivityIndicator size="small" color={theme.textOnPrimary} />
+              ) : (
+                <>
+                  <Feather name="log-out" size={18} color={theme.textOnPrimary} style={{ marginRight: Spacing.sm }} />
+                  <ThemedText type="bodyBold" style={{ color: theme.textOnPrimary }}>
+                    Box abholen
+                  </ThemedText>
+                </>
+              )}
+            </Button>
+          ) : null}
           {task && nextAction ? (
             <Button
               onPress={() => handleActionPress(task.id, nextAction.nextStatus)}
@@ -507,6 +618,16 @@ export default function ScannerScreen() {
         <View style={styles.modalActions}>
           <Button onPress={closeModal} style={[styles.cancelButton, { backgroundColor: theme.backgroundSecondary }]}>
             Schließen
+          </Button>
+          <Button
+            onPress={() => enterPlacementMode(result)}
+            disabled={isProcessing}
+            style={[styles.actionButton, { backgroundColor: theme.primary }]}
+          >
+            <Feather name="log-in" size={18} color={theme.textOnPrimary} style={{ marginRight: Spacing.sm }} />
+            <ThemedText type="bodyBold" style={{ color: theme.textOnPrimary }}>
+              Box hier platzieren
+            </ThemedText>
           </Button>
           {boxAtStand ? (
             <Button
@@ -685,37 +806,65 @@ export default function ScannerScreen() {
 
       <View style={[styles.overlay, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <View style={[styles.scanModeIndicator, { backgroundColor: "rgba(0,0,0,0.6)" }]}>
-            <Feather name="maximize" size={18} color={theme.accent} />
-            <ThemedText type="smallBold" style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}>
-              Box / Stellplatz / Container scannen
-            </ThemedText>
-          </View>
+          {pendingStandForPlacement ? (
+            <View style={[styles.scanModeIndicator, { backgroundColor: theme.primary }]}>
+              <Feather name="log-in" size={18} color={theme.textOnPrimary} />
+              <ThemedText type="smallBold" style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}>
+                Box scannen für: {pendingStandForPlacement.stand.identifier}
+              </ThemedText>
+            </View>
+          ) : (
+            <View style={[styles.scanModeIndicator, { backgroundColor: "rgba(0,0,0,0.6)" }]}>
+              <Feather name="maximize" size={18} color={theme.accent} />
+              <ThemedText type="smallBold" style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}>
+                Box / Stellplatz / Container scannen
+              </ThemedText>
+            </View>
+          )}
 
-          <Pressable
-            style={[styles.flashButton, { backgroundColor: flashOn ? theme.accent : "rgba(0,0,0,0.6)" }]}
-            onPress={() => setFlashOn(!flashOn)}
-          >
-            <Feather name={flashOn ? "zap" : "zap-off"} size={20} color={theme.textOnPrimary} />
-          </Pressable>
+          <View style={styles.headerButtons}>
+            {pendingStandForPlacement ? (
+              <Pressable
+                style={[styles.flashButton, { backgroundColor: theme.error }]}
+                onPress={() => setPendingStandForPlacement(null)}
+              >
+                <Feather name="x" size={20} color={theme.textOnPrimary} />
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={[styles.flashButton, { backgroundColor: flashOn ? theme.accent : "rgba(0,0,0,0.6)" }]}
+              onPress={() => setFlashOn(!flashOn)}
+            >
+              <Feather name={flashOn ? "zap" : "zap-off"} size={20} color={theme.textOnPrimary} />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.scanArea}>
           <View style={styles.scanFrame}>
-            <View style={[styles.cornerTopLeft, { borderColor: theme.accent }]} />
-            <View style={[styles.cornerTopRight, { borderColor: theme.accent }]} />
-            <View style={[styles.cornerBottomLeft, { borderColor: theme.accent }]} />
-            <View style={[styles.cornerBottomRight, { borderColor: theme.accent }]} />
+            <View style={[styles.cornerTopLeft, { borderColor: pendingStandForPlacement ? theme.primary : theme.accent }]} />
+            <View style={[styles.cornerTopRight, { borderColor: pendingStandForPlacement ? theme.primary : theme.accent }]} />
+            <View style={[styles.cornerBottomLeft, { borderColor: pendingStandForPlacement ? theme.primary : theme.accent }]} />
+            <View style={[styles.cornerBottomRight, { borderColor: pendingStandForPlacement ? theme.primary : theme.accent }]} />
           </View>
         </View>
 
         <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
-          <View style={[styles.helpText, { backgroundColor: "rgba(0,0,0,0.7)" }]}>
-            <Feather name="info" size={16} color={theme.textSecondary} />
-            <ThemedText type="small" style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}>
-              Scannen Sie einen QR-Code zum Fortfahren
-            </ThemedText>
-          </View>
+          {pendingStandForPlacement ? (
+            <View style={[styles.helpText, { backgroundColor: theme.primary }]}>
+              <Feather name="box" size={16} color={theme.textOnPrimary} />
+              <ThemedText type="small" style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}>
+                Scannen Sie jetzt eine Box zum Platzieren
+              </ThemedText>
+            </View>
+          ) : (
+            <View style={[styles.helpText, { backgroundColor: "rgba(0,0,0,0.7)" }]}>
+              <Feather name="info" size={16} color={theme.textSecondary} />
+              <ThemedText type="small" style={{ color: theme.textOnPrimary, marginLeft: Spacing.xs }}>
+                Scannen Sie einen QR-Code zum Fortfahren
+              </ThemedText>
+            </View>
+          )}
         </View>
       </View>
 
@@ -789,6 +938,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
+  },
+  headerButtons: {
+    flexDirection: "row",
+    gap: Spacing.sm,
   },
   scanArea: {
     flex: 1,

@@ -5,6 +5,7 @@ import { createHash } from "crypto";
 import { checkDatabaseHealth, db } from "./db";
 import { 
   materials, halls, stations, stands, boxes, taskEvents, tasks, warehouseContainers, users, departments, taskSchedules,
+  scanEvents, activityLogs,
   assertAutomotiveTransition, getAutomotiveTimestampFieldForStatus,
   type Material, type Hall, type Station, type Stand, type Box, type TaskEvent, type TaskSchedule
 } from "@shared/schema";
@@ -4616,6 +4617,368 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to run daily tasks:", error);
       res.status(500).json({ error: "Failed to run daily tasks" });
+    }
+  });
+
+  // ----------------------------------------------------------------------------
+  // SCAN WORKFLOW ENDPOINTS
+  // Place and pickup boxes via QR code scanning
+  // ----------------------------------------------------------------------------
+
+  // POST /api/scan/place-box - Place a box at a stand using QR codes
+  // Auto-replaces any existing box on the stand
+  app.post("/api/scan/place-box", requireAuth, async (req, res) => {
+    try {
+      const { standQr, boxQr, geo, locationDetails } = req.body;
+      const authUser = (req as any).authUser;
+
+      if (!standQr || !boxQr) {
+        return res.status(400).json({ error: "standQr and boxQr are required" });
+      }
+
+      // Resolve stand by QR code
+      const [stand] = await db.select().from(stands).where(eq(stands.qrCode, standQr));
+      if (!stand) {
+        return res.status(404).json({ error: "Stellplatz nicht gefunden" });
+      }
+
+      // Resolve box by QR code
+      const [box] = await db.select().from(boxes).where(eq(boxes.qrCode, boxQr));
+      if (!box) {
+        return res.status(404).json({ error: "Box nicht gefunden" });
+      }
+
+      // Get station and hall for context
+      const [station] = await db.select().from(stations).where(eq(stations.id, stand.stationId));
+      const [hall] = station ? await db.select().from(halls).where(eq(halls.id, station.hallId)) : [null];
+      let material = null;
+      if (stand.materialId) {
+        const [mat] = await db.select().from(materials).where(eq(materials.id, stand.materialId));
+        material = mat;
+      }
+
+      // Build context meta for audit events
+      const standMeta = await buildStandContextMeta(stand.id);
+
+      // AUTO-REPLACE: If another box is at this stand, remove it
+      const existingBoxes = await db.select().from(boxes).where(
+        and(eq(boxes.standId, stand.id), eq(boxes.status, "AT_STAND"))
+      );
+      
+      for (const existingBox of existingBoxes) {
+        if (existingBox.id !== box.id) {
+          // Set existing box to IN_TRANSIT (removed from stand)
+          await db.update(boxes)
+            .set({
+              standId: null,
+              status: "IN_TRANSIT",
+              updatedAt: new Date(),
+            })
+            .where(eq(boxes.id, existingBox.id));
+
+          // Audit event for auto-replace
+          await createAuditEvent({
+            taskId: existingBox.currentTaskId || existingBox.id,
+            actorUserId: authUser.id,
+            action: "BOX_AUTO_REPLACED",
+            entityType: "box",
+            entityId: existingBox.id,
+            beforeData: { standId: stand.id, status: "AT_STAND" },
+            afterData: { standId: null, status: "IN_TRANSIT" },
+            metaJson: {
+              ...standMeta,
+              boxId: existingBox.id,
+              replacedByBoxId: box.id,
+              source: "SCAN_PLACE_BOX",
+            },
+          });
+
+          // Activity log for auto-replace
+          await db.insert(activityLogs).values({
+            type: "BOX_AUTO_REPLACED",
+            action: "BOX_AUTO_REPLACED",
+            message: `Box ${existingBox.serial} wurde automatisch vom Stellplatz ${stand.identifier} entfernt (ersetzt durch ${box.serial})`,
+            userId: authUser.id,
+            containerId: existingBox.id,
+          });
+        }
+      }
+
+      // Store previous state for audit
+      const beforeData = { standId: box.standId, status: box.status };
+
+      // Place the new box at the stand
+      const [updatedBox] = await db.update(boxes)
+        .set({
+          standId: stand.id,
+          status: "AT_STAND",
+          lastSeenAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(boxes.id, box.id))
+        .returning();
+
+      // Create scan event
+      const [scanEvent] = await db.insert(scanEvents).values({
+        containerId: box.id,
+        containerType: "box",
+        taskId: box.currentTaskId || null,
+        scannedByUserId: authUser.id,
+        scanContext: "TASK_PICKUP",
+        locationType: "OTHER",
+        locationDetails: locationDetails || `Stellplatz ${stand.identifier}`,
+        geoLocation: geo || null,
+        scanResult: "SUCCESS",
+        resultMessage: `Box ${box.serial} am Stellplatz ${stand.identifier} abgestellt`,
+        extraData: { standId: stand.id, standQr, boxQr },
+      }).returning();
+
+      // Audit event for placement
+      await createAuditEvent({
+        taskId: box.currentTaskId || box.id,
+        actorUserId: authUser.id,
+        action: "BOX_PLACED",
+        entityType: "box",
+        entityId: box.id,
+        beforeData,
+        afterData: { standId: stand.id, status: "AT_STAND" },
+        metaJson: {
+          ...standMeta,
+          boxId: box.id,
+          previousStandId: beforeData.standId || undefined,
+          source: "SCAN_PLACE_BOX",
+        },
+      });
+
+      // Activity log for placement
+      await db.insert(activityLogs).values({
+        type: "CONTAINER_STATUS_CHANGED",
+        action: "CONTAINER_STATUS_CHANGED",
+        message: `Box ${box.serial} wurde am Stellplatz ${stand.identifier} abgestellt`,
+        userId: authUser.id,
+        containerId: box.id,
+        taskId: box.currentTaskId || null,
+        scanEventId: scanEvent.id,
+        location: geo || null,
+      });
+
+      // If task exists for this box, update to DROPPED_OFF
+      if (box.currentTaskId) {
+        const [task] = await db.select().from(tasks).where(eq(tasks.id, box.currentTaskId));
+        if (task && (task.status === "PICKED_UP" || task.status === "IN_TRANSIT")) {
+          try {
+            assertAutomotiveTransition(task.status, "DROPPED_OFF");
+            const timestampField = getAutomotiveTimestampFieldForStatus("DROPPED_OFF");
+            
+            await db.update(tasks)
+              .set({
+                status: "DROPPED_OFF",
+                [timestampField]: new Date(),
+                updatedAt: new Date(),
+                // Release claim when dropped off
+                claimedByUserId: null,
+                claimedAt: null,
+              })
+              .where(eq(tasks.id, task.id));
+
+            await createAuditEvent({
+              taskId: task.id,
+              actorUserId: authUser.id,
+              action: "STATUS_CHANGED",
+              entityType: "task",
+              entityId: task.id,
+              beforeData: { status: task.status },
+              afterData: { status: "DROPPED_OFF" },
+              metaJson: {
+                ...standMeta,
+                boxId: box.id,
+                source: "SCAN_PLACE_BOX",
+              },
+            });
+          } catch (e) {
+            console.log(`[PlaceBox] Task ${task.id} transition to DROPPED_OFF not allowed from ${task.status}`);
+          }
+        }
+      }
+
+      res.json({
+        success: true,
+        box: updatedBox,
+        stand,
+        station,
+        hall,
+        material,
+        scanEvent,
+        message: `Box ${box.serial} erfolgreich am Stellplatz ${stand.identifier} abgestellt`,
+      });
+    } catch (error) {
+      console.error("Failed to place box:", error);
+      res.status(500).json({ error: "Platzierung fehlgeschlagen" });
+    }
+  });
+
+  // POST /api/scan/pickup-box - Pick up a box from its current stand
+  app.post("/api/scan/pickup-box", requireAuth, async (req, res) => {
+    try {
+      const { boxQr, geo, locationDetails } = req.body;
+      const authUser = (req as any).authUser;
+
+      if (!boxQr) {
+        return res.status(400).json({ error: "boxQr is required" });
+      }
+
+      // Resolve box by QR code
+      const [box] = await db.select().from(boxes).where(eq(boxes.qrCode, boxQr));
+      if (!box) {
+        return res.status(404).json({ error: "Box nicht gefunden" });
+      }
+
+      // Store previous stand info for audit
+      const previousStandId = box.standId;
+      let previousStand = null;
+      let previousStation = null;
+      let previousHall = null;
+      let previousMaterial = null;
+
+      if (previousStandId) {
+        const [stand] = await db.select().from(stands).where(eq(stands.id, previousStandId));
+        previousStand = stand;
+        if (stand) {
+          const [station] = await db.select().from(stations).where(eq(stations.id, stand.stationId));
+          previousStation = station;
+          if (station) {
+            const [hall] = await db.select().from(halls).where(eq(halls.id, station.hallId));
+            previousHall = hall;
+          }
+          if (stand.materialId) {
+            const [mat] = await db.select().from(materials).where(eq(materials.id, stand.materialId));
+            previousMaterial = mat;
+          }
+        }
+      }
+
+      const beforeData = { standId: box.standId, status: box.status };
+
+      // Update box: remove from stand, set to IN_TRANSIT
+      const [updatedBox] = await db.update(boxes)
+        .set({
+          standId: null,
+          status: "IN_TRANSIT",
+          lastSeenAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(boxes.id, box.id))
+        .returning();
+
+      // Create scan event
+      const [scanEvent] = await db.insert(scanEvents).values({
+        containerId: box.id,
+        containerType: "box",
+        taskId: box.currentTaskId || null,
+        scannedByUserId: authUser.id,
+        scanContext: "TASK_PICKUP",
+        locationType: previousStand ? "OTHER" : "WAREHOUSE",
+        locationDetails: locationDetails || (previousStand ? `Abgeholt von ${previousStand.identifier}` : "Abgeholt"),
+        geoLocation: geo || null,
+        scanResult: "SUCCESS",
+        resultMessage: `Box ${box.serial} abgeholt${previousStand ? ` von Stellplatz ${previousStand.identifier}` : ""}`,
+        extraData: { previousStandId, boxQr },
+      }).returning();
+
+      // Build context meta
+      const contextMeta = previousStandId ? await buildStandContextMeta(previousStandId) : { boxId: box.id };
+
+      // Audit event for pickup
+      await createAuditEvent({
+        taskId: box.currentTaskId || box.id,
+        actorUserId: authUser.id,
+        action: "BOX_PICKED_UP",
+        entityType: "box",
+        entityId: box.id,
+        beforeData,
+        afterData: { standId: null, status: "IN_TRANSIT" },
+        metaJson: {
+          ...contextMeta,
+          boxId: box.id,
+          previousStandId: previousStandId || undefined,
+          source: "SCAN_PICKUP_BOX",
+        },
+      });
+
+      // Activity log for pickup
+      await db.insert(activityLogs).values({
+        type: "CONTAINER_STATUS_CHANGED",
+        action: "CONTAINER_STATUS_CHANGED",
+        message: `Box ${box.serial} wurde abgeholt${previousStand ? ` vom Stellplatz ${previousStand.identifier}` : ""}`,
+        userId: authUser.id,
+        containerId: box.id,
+        taskId: box.currentTaskId || null,
+        scanEventId: scanEvent.id,
+        location: geo || null,
+        metadata: { previousStandId },
+      });
+
+      // If task exists for this box, update to PICKED_UP or IN_TRANSIT
+      if (box.currentTaskId) {
+        const [task] = await db.select().from(tasks).where(eq(tasks.id, box.currentTaskId));
+        if (task) {
+          let newStatus = null;
+          
+          if (task.status === "OPEN") {
+            newStatus = "PICKED_UP";
+          } else if (task.status === "PICKED_UP") {
+            newStatus = "IN_TRANSIT";
+          }
+          
+          if (newStatus) {
+            try {
+              assertAutomotiveTransition(task.status, newStatus);
+              const timestampField = getAutomotiveTimestampFieldForStatus(newStatus);
+              
+              await db.update(tasks)
+                .set({
+                  status: newStatus,
+                  [timestampField]: new Date(),
+                  claimedByUserId: authUser.id,
+                  claimedAt: new Date(),
+                  updatedAt: new Date(),
+                })
+                .where(eq(tasks.id, task.id));
+
+              await createAuditEvent({
+                taskId: task.id,
+                actorUserId: authUser.id,
+                action: "STATUS_CHANGED",
+                entityType: "task",
+                entityId: task.id,
+                beforeData: { status: task.status },
+                afterData: { status: newStatus },
+                metaJson: {
+                  ...contextMeta,
+                  boxId: box.id,
+                  source: "SCAN_PICKUP_BOX",
+                },
+              });
+            } catch (e) {
+              console.log(`[PickupBox] Task ${task.id} transition to ${newStatus} not allowed from ${task.status}`);
+            }
+          }
+        }
+      }
+
+      res.json({
+        success: true,
+        box: updatedBox,
+        previousStand,
+        previousStation,
+        previousHall,
+        previousMaterial,
+        scanEvent,
+        message: `Box ${box.serial} erfolgreich abgeholt${previousStand ? ` von Stellplatz ${previousStand.identifier}` : ""}`,
+      });
+    } catch (error) {
+      console.error("Failed to pickup box:", error);
+      res.status(500).json({ error: "Abholung fehlgeschlagen" });
     }
   });
 
