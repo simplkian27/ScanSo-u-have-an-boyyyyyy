@@ -6446,11 +6446,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .returning();
 
       await db.insert(activityLogs).values({
-        userId: authUser.id,
+        type: "MANUAL_EDIT",
         action: "MAP_HALL_MARKER_SET",
-        entityType: "hall",
-        entityId: req.params.id,
-        details: {
+        message: `Hallenmarker für ${hall.name} (${hall.code}) gesetzt`,
+        userId: authUser.id,
+        metadata: {
+          entityType: "hall",
+          entityId: req.params.id,
           hallCode: hall.code,
           hallName: hall.name,
           before: beforeLocationMeta,
@@ -6468,6 +6470,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("[MapEditor] Failed to set hall marker:", error);
       res.status(500).json({ error: "Fehler beim Setzen des Hallenmarkers" });
+    }
+  });
+
+  /**
+   * GET /api/admin/halls/:id/map-marker
+   * Get hall marker position from locationMeta
+   */
+  app.get("/api/admin/halls/:id/map-marker", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const [hall] = await db.select().from(halls).where(eq(halls.id, req.params.id));
+      if (!hall) {
+        return res.status(404).json({ error: "Halle nicht gefunden" });
+      }
+
+      const locationMeta = hall.locationMeta as any;
+      res.json({
+        hallId: hall.id,
+        hallCode: hall.code,
+        hallName: hall.name,
+        mapMarker: locationMeta?.mapMarker || null,
+      });
+    } catch (error) {
+      console.error("[MapEditor] Failed to get hall marker:", error);
+      res.status(500).json({ error: "Fehler beim Abrufen des Hallenmarkers" });
     }
   });
 
@@ -6513,11 +6539,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .returning();
 
       await db.insert(activityLogs).values({
-        userId: authUser.id,
+        type: "MANUAL_EDIT",
         action: "MAP_STATION_MARKER_SET",
-        entityType: "station",
-        entityId: req.params.id,
-        details: {
+        message: `Stationsposition für ${station.name} (${station.code}) gesetzt`,
+        userId: authUser.id,
+        metadata: {
+          entityType: "station",
+          entityId: req.params.id,
           stationCode: station.code,
           stationName: station.name,
           hallId: station.hallId,
