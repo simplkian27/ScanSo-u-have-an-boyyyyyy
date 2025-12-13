@@ -569,8 +569,8 @@ export const tasks = pgTable("tasks", {
   title: text("title"), // Short description, e.g., "Abholung bei ABC GmbH"
   description: text("description"), // Detailed description
   
-  // Container References
-  containerID: varchar("container_id").notNull().references(() => customerContainers.id),
+  // Container References (nullable for stand-based automotive tasks)
+  containerID: varchar("container_id").references(() => customerContainers.id),
   deliveryContainerID: varchar("delivery_container_id").references(() => warehouseContainers.id),
   
   // User References

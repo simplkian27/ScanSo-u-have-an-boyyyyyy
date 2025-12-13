@@ -275,7 +275,7 @@ async function generateDailyTasksScheduled() {
         const [newTask] = await db.insert(tasks).values({
           title: `Tägliche Abholung - Stand ${stand.identifier}`,
           description: `Automatisch generierte tägliche Abholung`,
-          containerID: stand.id,
+          containerID: null,
           boxId: null,
           standId: stand.id,
           materialType: stand.materialId || null,
@@ -454,7 +454,7 @@ async function generateFlexibleScheduledTasks() {
           const [newTask] = await db.insert(tasks).values({
             title: `${schedule.name} - Stand ${stand.identifier}`,
             description: `Automatisch generiert durch Zeitplan: ${schedule.name}`,
-            containerID: stand.id,
+            containerID: null,
             boxId: null,
             standId: stand.id,
             materialType: stand.materialId || null,
@@ -5039,7 +5039,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const [task] = await db.insert(tasks).values({
             title: `Tägliche Abholung - Stand ${stand.identifier}`,
             description: `Automatisch generierte tägliche Abholung für Stand ${stand.identifier}`,
-            containerID: stand.id,
+            containerID: null,
             boxId: null,
             standId: stand.id,
             materialType: stand.materialId || null,
@@ -5196,7 +5196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const [task] = await db.insert(tasks).values({
             title: `Tägliche Abholung - Stand ${stand.identifier}`,
             description: `Automatisch generierte tägliche Abholung für Stand ${stand.identifier}`,
-            containerID: stand.id,
+            containerID: null,
             boxId: null,
             standId: stand.id,
             materialType: stand.materialId || null,
