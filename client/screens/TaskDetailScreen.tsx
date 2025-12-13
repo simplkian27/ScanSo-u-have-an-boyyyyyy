@@ -337,12 +337,14 @@ export default function TaskDetailScreen() {
           </ThemedText>
           
           <View style={styles.infoRow}>
-            <Feather name="map-pin" size={20} color={theme.textSecondary} />
+            <Feather name="map-pin" size={20} color={theme.textSecondary} style={styles.infoIcon} />
             <View style={styles.infoContent}>
               <ThemedText type="small" style={{ color: theme.textSecondary }}>Standort</ThemedText>
-              <ThemedText type="body">{container?.location || "Wird geladen..."}</ThemedText>
+              <ThemedText type="body" numberOfLines={3} ellipsizeMode="tail" style={styles.infoText}>
+                {container?.location || "Wird geladen..."}
+              </ThemedText>
               {container?.customerName ? (
-                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                <ThemedText type="small" numberOfLines={2} ellipsizeMode="tail" style={[styles.infoText, { color: theme.textSecondary }]}>
                   {container.customerName}
                 </ThemedText>
               ) : null}
@@ -700,6 +702,14 @@ const styles = StyleSheet.create({
   },
   infoContent: {
     flex: 1,
+    minWidth: 0,
+  },
+  infoIcon: {
+    marginTop: 2,
+    flexShrink: 0,
+  },
+  infoText: {
+    flexShrink: 1,
   },
   notesCard: {
     padding: Spacing.lg,

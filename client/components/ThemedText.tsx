@@ -1,4 +1,4 @@
-import { Text, type TextProps } from "react-native";
+import { Text, type TextProps, StyleSheet } from "react-native";
 
 import { useTheme } from "@/hooks/useTheme";
 import { Typography } from "@/constants/theme";
@@ -7,6 +7,8 @@ export type ThemedTextProps = TextProps & {
   lightColor?: string;
   darkColor?: string;
   type?: "h1" | "h2" | "h3" | "h4" | "body" | "bodyBold" | "small" | "smallBold" | "caption" | "captionBold" | "link";
+  truncate?: boolean;
+  maxLines?: number;
 };
 
 export function ThemedText({
@@ -14,6 +16,10 @@ export function ThemedText({
   lightColor,
   darkColor,
   type = "body",
+  truncate = false,
+  maxLines,
+  numberOfLines,
+  ellipsizeMode = "tail",
   ...rest
 }: ThemedTextProps) {
   const { theme, isDark } = useTheme();
@@ -63,7 +69,48 @@ export function ThemedText({
     }
   };
 
+  const effectiveNumberOfLines = numberOfLines ?? (truncate ? 1 : maxLines);
+
   return (
-    <Text style={[{ color: getColor() }, getTypeStyle(), style]} {...rest} />
+    <Text
+      style={[
+        { color: getColor() },
+        getTypeStyle(),
+        truncate ? styles.truncate : null,
+        style,
+      ]}
+      numberOfLines={effectiveNumberOfLines}
+      ellipsizeMode={effectiveNumberOfLines ? ellipsizeMode : undefined}
+      {...rest}
+    />
   );
 }
+
+export function TruncatedText({
+  children,
+  lines = 1,
+  style,
+  type = "body",
+  ...rest
+}: Omit<ThemedTextProps, "truncate" | "maxLines" | "numberOfLines"> & {
+  children: React.ReactNode;
+  lines?: number;
+}) {
+  return (
+    <ThemedText
+      type={type}
+      numberOfLines={lines}
+      ellipsizeMode="tail"
+      style={[styles.truncate, style]}
+      {...rest}
+    >
+      {children}
+    </ThemedText>
+  );
+}
+
+const styles = StyleSheet.create({
+  truncate: {
+    flexShrink: 1,
+  },
+});
