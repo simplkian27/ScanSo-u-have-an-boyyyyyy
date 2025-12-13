@@ -363,7 +363,7 @@ export default function ScheduleManagementScreen() {
       <View style={styles.scheduleHeader}>
         <View style={styles.scheduleTitleRow}>
           <Feather name="clock" size={20} color={theme.primary} />
-          <ThemedText type="bodyBold" style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}>
+          <ThemedText type="bodyBold" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}>
             {item.name}
           </ThemedText>
           <StatusBadge
@@ -377,19 +377,19 @@ export default function ScheduleManagementScreen() {
       <View style={styles.scheduleDetails}>
         <View style={styles.detailRow}>
           <Feather name="calendar" size={14} color={theme.textSecondary} />
-          <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+          <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
             {getScheduleDescription(item)}
           </ThemedText>
         </View>
         <View style={styles.detailRow}>
           <Feather name="map-pin" size={14} color={theme.textSecondary} />
-          <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+          <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
             Stand: {item.stand?.identifier || item.standId}
           </ThemedText>
         </View>
         <View style={styles.detailRow}>
           <Feather name="layers" size={14} color={theme.textSecondary} />
-          <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+          <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
             {getRuleTypeLabel(item.ruleType)} | {item.createDaysAhead} Tage im Voraus
           </ThemedText>
         </View>
@@ -445,7 +445,7 @@ export default function ScheduleManagementScreen() {
   return (
     <ThemedView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <FlatList
-        data={schedules.filter(s => s.isActive)}
+        data={schedules}
         keyExtractor={(item) => item.id}
         renderItem={renderScheduleItem}
         contentContainerStyle={[
@@ -975,5 +975,6 @@ const styles = StyleSheet.create({
   previewRow: {
     flexDirection: "row",
     alignItems: "center",
+    minWidth: 0,
   },
 });

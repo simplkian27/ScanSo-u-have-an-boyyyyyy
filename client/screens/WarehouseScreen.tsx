@@ -85,7 +85,7 @@ export default function WarehouseScreen() {
             <View style={styles.containerHeader}>
               <View style={styles.containerTitleRow}>
                 <Feather name="archive" size={20} color={theme.primary} />
-                <ThemedText type="bodyBold" style={{ color: theme.text, marginLeft: Spacing.sm }}>
+                <ThemedText type="bodyBold" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}>
                   {item.materialType}
                 </ThemedText>
               </View>
@@ -99,14 +99,14 @@ export default function WarehouseScreen() {
             <View style={styles.containerDetails}>
               <View style={styles.detailRow}>
                 <Feather name="map-pin" size={14} color={theme.textSecondary} />
-                <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+                <ThemedText type="small" numberOfLines={2} ellipsizeMode="tail" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
                   {item.location}
                 </ThemedText>
               </View>
               {item.warehouseZone ? (
                 <View style={styles.detailRow}>
                   <Feather name="grid" size={14} color={theme.textSecondary} />
-                  <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+                  <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
                     Zone: {item.warehouseZone}
                   </ThemedText>
                 </View>
@@ -210,10 +210,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    minWidth: 0,
   },
   containerTitleRow: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
+    minWidth: 0,
   },
   containerDetails: {
     gap: Spacing.xs,

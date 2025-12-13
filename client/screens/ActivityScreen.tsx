@@ -242,7 +242,7 @@ export default function ActivityScreen() {
             
             <View style={styles.actorRow}>
               <Feather name="user" size={12} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.xs }}>
+              <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary, marginLeft: Spacing.xs, flex: 1 }}>
                 {actorString}
               </ThemedText>
             </View>
@@ -250,7 +250,7 @@ export default function ActivityScreen() {
             {contextString ? (
               <View style={styles.contextRow}>
                 <Feather name="info" size={12} color={theme.textTertiary} />
-                <ThemedText type="caption" style={{ color: theme.textTertiary, marginLeft: Spacing.xs, flex: 1 }}>
+                <ThemedText type="caption" numberOfLines={2} ellipsizeMode="tail" style={{ color: theme.textTertiary, marginLeft: Spacing.xs, flex: 1 }}>
                   {contextString}
                 </ThemedText>
               </View>

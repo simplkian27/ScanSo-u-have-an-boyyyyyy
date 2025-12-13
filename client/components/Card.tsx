@@ -100,12 +100,12 @@ export function Card({
   const content = (
     <>
       {title ? (
-        <ThemedText type="h4" style={[styles.cardTitle, { color: theme.text }]}>
+        <ThemedText type="h4" numberOfLines={2} ellipsizeMode="tail" style={[styles.cardTitle, { color: theme.text }]}>
           {title}
         </ThemedText>
       ) : null}
       {description ? (
-        <ThemedText type="small" style={[styles.cardDescription, { color: theme.textSecondary }]}>
+        <ThemedText type="small" numberOfLines={3} ellipsizeMode="tail" style={[styles.cardDescription, { color: theme.textSecondary }]}>
           {description}
         </ThemedText>
       ) : null}

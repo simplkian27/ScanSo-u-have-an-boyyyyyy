@@ -274,7 +274,7 @@ export default function ManageDriversScreen() {
             </View>
             <View style={styles.driverDetails}>
               <View style={styles.nameRow}>
-                <ThemedText type="h4" style={{ color: theme.text }}>{item.name}</ThemedText>
+                <ThemedText type="h4" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.text, flex: 1 }}>{item.name}</ThemedText>
                 {!item.isActive ? (
                   <View style={[styles.inactiveBadge, { backgroundColor: theme.errorLight }]}>
                     <ThemedText type="caption" style={{ color: theme.error, fontWeight: "700" }}>
@@ -283,7 +283,7 @@ export default function ManageDriversScreen() {
                   </View>
                 ) : null}
               </View>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>{item.email}</ThemedText>
+              <ThemedText type="small" numberOfLines={1} ellipsizeMode="tail" style={{ color: theme.textSecondary }}>{item.email}</ThemedText>
             </View>
           </View>
           <Pressable
@@ -916,7 +916,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    flexWrap: "wrap",
+    minWidth: 0,
   },
   inactiveBadge: {
     paddingHorizontal: Spacing.sm,
