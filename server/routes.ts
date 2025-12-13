@@ -5605,6 +5605,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // KAISERSLAUTERN FACTORY SEED ENDPOINT
+  // ============================================================================
+
+  /**
+   * POST /api/seed/kaiserslautern
+   * Seeds the Kaiserslautern factory map data (halls, stations, stands)
+   * Idempotent: skips records that already exist
+   */
+  app.post("/api/seed/kaiserslautern", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      console.log("[Seed] Starting Kaiserslautern factory seeding...");
+      
+      const seeded = {
+        halls: { created: 0, skipped: 0 },
+        stations: { created: 0, skipped: 0 },
+        stands: { created: 0, skipped: 0 },
+      };
+
+      // Hall data from CSV (on OUT map)
+      const hallsData = [
+        { code: "K70", name: "Bau K70", x: 0.25, y: 0.37 },
+        { code: "K25", name: "Bau K25", x: 0.44, y: 0.23 },
+        { code: "K19", name: "Bau K19", x: 0.45, y: 0.34 },
+        { code: "K18", name: "Bau K18", x: 0.56, y: 0.28 },
+        { code: "K30", name: "Bau K30", x: 0.34, y: 0.60 },
+        { code: "K16", name: "Bau K16", x: 0.73, y: 0.33 },
+        { code: "K13", name: "Bau K13", x: 0.81, y: 0.76 },
+      ];
+
+      // Station data from CSV (each station belongs to a hall)
+      const stationsData = [
+        { code: "K13-S01", hallCode: "K13", name: "Cluster 338-340", x: 0.11, y: 0.46, label: "Cluster 338-340 (links)" },
+        { code: "K18-S01", hallCode: "K18", name: "Cluster 712/623/615", x: 0.54, y: 0.22, label: "Cluster 712/623/615 (oben)" },
+        { code: "K18-S02", hallCode: "K18", name: "Cluster 646/647/653", x: 0.76, y: 0.52, label: "Cluster 646/647/653 (rechts)" },
+        { code: "K18-S03", hallCode: "K18", name: "Cluster 655/656", x: 0.79, y: 0.86, label: "Cluster 655/656 (unten rechts)" },
+        { code: "K18-S04", hallCode: "K18", name: "Cluster 680-683", x: 0.32, y: 0.75, label: "Cluster 680-683 (links unten)" },
+        { code: "K19-S01", hallCode: "K19", name: "Cluster 625-627", x: 0.21, y: 0.46, label: "Cluster 625-627 (links)" },
+        { code: "K19-S02", hallCode: "K19", name: "Cluster 701/702/710/711", x: 0.36, y: 0.17, label: "Cluster 701/702/710/711 (oben links)" },
+        { code: "K19-S03", hallCode: "K19", name: "Cluster 604/605/606/612", x: 0.67, y: 0.14, label: "Cluster 604/605/606/612 (oben rechts)" },
+        { code: "K19-S04", hallCode: "K19", name: "Cluster 201/62/616/617", x: 0.49, y: 0.48, label: "Cluster 201/62/616/617 (Mitte)" },
+        { code: "K19-S05", hallCode: "K19", name: "Cluster 629-633", x: 0.37, y: 0.86, label: "Cluster 629-633 (unten Mitte)" },
+        { code: "K19-S06", hallCode: "K19", name: "Cluster 608-611/602/609/610", x: 0.71, y: 0.80, label: "Cluster 608-611/602/609/610 (unten rechts)" },
+        { code: "K25-S01", hallCode: "K25", name: "Cluster 36/37/47", x: 0.10, y: 0.65, label: "Cluster 36/37/47 (links unten)" },
+        { code: "K25-S02", hallCode: "K25", name: "Cluster 706", x: 0.19, y: 0.52, label: "Cluster 706 (links Mitte)" },
+        { code: "K25-S03", hallCode: "K25", name: "Cluster 67/68/69/660", x: 0.53, y: 0.66, label: "Cluster 67/68/69/660 (unten Mitte)" },
+        { code: "K25-S04", hallCode: "K25", name: "Cluster 225-228/224", x: 0.71, y: 0.62, label: "Cluster 225-228/224 (rechts)" },
+        { code: "K25-S05", hallCode: "K25", name: "Cluster 41/663", x: 0.81, y: 0.17, label: "Cluster 41/663 (oben rechts)" },
+        { code: "K25-S06", hallCode: "K25", name: "Cluster 672/714", x: 0.07, y: 0.35, label: "Cluster 672/714 (oben links)" },
+      ];
+
+      // Helper: Parse stand identifiers from cluster label
+      function parseStandIdentifiers(label: string): string[] {
+        const identifiers: string[] = [];
+        const match = label.match(/Cluster\s+([\d\/\-,\s]+)/);
+        if (!match) return identifiers;
+        
+        const parts = match[1].split(/[\/,]/);
+        for (const part of parts) {
+          const trimmed = part.trim();
+          if (trimmed.includes("-")) {
+            const [start, end] = trimmed.split("-").map(s => parseInt(s.trim(), 10));
+            if (!isNaN(start) && !isNaN(end) && end > start && (end - start) < 20) {
+              for (let i = start; i <= end; i++) {
+                identifiers.push(String(i));
+              }
+            }
+          } else {
+            const num = parseInt(trimmed, 10);
+            if (!isNaN(num)) {
+              identifiers.push(String(num));
+            }
+          }
+        }
+        return identifiers;
+      }
+
+      // Step 1: Create halls
+      const hallIdMap: Record<string, string> = {};
+      for (const h of hallsData) {
+        const [existing] = await db.select().from(halls).where(eq(halls.code, h.code));
+        if (existing) {
+          hallIdMap[h.code] = existing.id;
+          seeded.halls.skipped++;
+        } else {
+          const [created] = await db.insert(halls).values({
+            name: h.name,
+            code: h.code,
+            positionMeta: { x: h.x, y: h.y, mapCode: "OUT" },
+          }).returning();
+          hallIdMap[h.code] = created.id;
+          seeded.halls.created++;
+        }
+      }
+
+      // Step 2: Create stations
+      const stationIdMap: Record<string, string> = {};
+      for (const s of stationsData) {
+        const hallId = hallIdMap[s.hallCode];
+        if (!hallId) {
+          console.warn(`[Seed] Hall ${s.hallCode} not found for station ${s.code}`);
+          continue;
+        }
+
+        const [existing] = await db.select().from(stations).where(eq(stations.code, s.code));
+        if (existing) {
+          stationIdMap[s.code] = existing.id;
+          seeded.stations.skipped++;
+        } else {
+          const [created] = await db.insert(stations).values({
+            hallId,
+            name: s.name,
+            code: s.code,
+            positionMeta: { x: s.x, y: s.y, mapCode: s.hallCode, label: s.label },
+          }).returning();
+          stationIdMap[s.code] = created.id;
+          seeded.stations.created++;
+        }
+      }
+
+      // Step 3: Create stands from labels
+      for (const s of stationsData) {
+        const stationId = stationIdMap[s.code];
+        if (!stationId) continue;
+
+        const standIdentifiers = parseStandIdentifiers(s.label);
+        for (const identifier of standIdentifiers) {
+          const fullId = `${s.hallCode}-${identifier}`;
+          const qrCode = JSON.stringify({ t: "STAND", id: fullId });
+
+          const [existing] = await db.select().from(stands).where(eq(stands.qrCode, qrCode));
+          if (existing) {
+            seeded.stands.skipped++;
+          } else {
+            try {
+              await db.insert(stands).values({
+                stationId,
+                identifier,
+                qrCode,
+              });
+              seeded.stands.created++;
+            } catch (err: any) {
+              if (err?.code === '23505') {
+                seeded.stands.skipped++;
+              } else {
+                console.error(`[Seed] Failed to create stand ${fullId}:`, err);
+              }
+            }
+          }
+        }
+      }
+
+      console.log("[Seed] Kaiserslautern seeding complete:", seeded);
+      res.json({
+        success: true,
+        message: "Kaiserslautern factory data seeded",
+        seeded,
+      });
+    } catch (error) {
+      console.error("[Seed] Kaiserslautern seeding failed:", error);
+      res.status(500).json({ error: "Failed to seed factory data" });
+    }
+  });
+
+  /**
+   * GET /api/factory/map-data
+   * Returns halls, stations and their positions for map rendering
+   */
+  app.get("/api/factory/map-data", async (req, res) => {
+    try {
+      const hallsResult = await db.select().from(halls).where(eq(halls.isActive, true));
+      const stationsResult = await db.select().from(stations).where(eq(stations.isActive, true));
+      
+      res.json({
+        halls: hallsResult.map(h => ({
+          id: h.id,
+          code: h.code,
+          name: h.name,
+          positionMeta: h.positionMeta,
+        })),
+        stations: stationsResult.map(s => ({
+          id: s.id,
+          code: s.code,
+          name: s.name,
+          hallId: s.hallId,
+          positionMeta: s.positionMeta,
+        })),
+      });
+    } catch (error) {
+      console.error("[MapData] Failed to fetch:", error);
+      res.status(500).json({ error: "Failed to fetch map data" });
+    }
+  });
+
   // ----------------------------------------------------------------------------
   // TASK SCHEDULERS
   // Daily scheduler: Runs at startup (5 second delay) and every hour

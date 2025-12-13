@@ -7,6 +7,7 @@ import TasksStackNavigator from "@/navigation/TasksStackNavigator";
 import ScannerScreen from "@/screens/ScannerScreen";
 import ContainersStackNavigator from "@/navigation/ContainersStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
+import MapScreen from "@/screens/MapScreen";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, IndustrialDesign } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +16,7 @@ export type MainTabParamList = {
   TasksTab: undefined;
   ScannerTab: undefined;
   ContainersTab: undefined;
+  MapTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -85,6 +87,16 @@ export default function MainTabNavigator() {
           title: "Lager",
           tabBarIcon: ({ color }) => (
             <Feather name="package" size={IndustrialDesign.iconSize} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="MapTab"
+        component={MapScreen}
+        options={{
+          title: "Werksplan",
+          tabBarIcon: ({ color }) => (
+            <Feather name="map-pin" size={IndustrialDesign.iconSize} color={color} />
           ),
         }}
       />
