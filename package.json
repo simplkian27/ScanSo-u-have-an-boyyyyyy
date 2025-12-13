@@ -3,10 +3,10 @@
   "main": "client/index.js",
   "version": "1.0.0",
   "scripts": {
-    "expo:dev": "EXPO_PACKAGER_PROXY_URL=https://containerflow-api-backend.onrender.com REACT_NATIVE_PACKAGER_HOSTNAME=containerflow-api-backend.onrender.com EXPO_PUBLIC_DOMAIN=containerflow-api-backend.onrender.com:5000 npx expo start --localhost",
+    "expo:dev": "EXPO_PACKAGER_PROXY_URL=$EXPO_PUBLIC_DOMAIN REACT_NATIVE_PACKAGER_HOSTNAME=containerflow-api-backend.onrender.com EXPO_PUBLIC_DOMAIN=containerflow-api-backend.onrender.com:5000 npx expo start --localhost",
     "server:dev": "NODE_ENV=development tsx server/index.ts",
     "all:dev": "npm run expo:dev & npm run server:dev",
-    "expo:start:static:build": "EXPO_PUBLIC_DOMAIN=$REPLIT_INTERNAL_APP_DOMAIN npx expo start --no-dev --minify --localhost",
+    "expo:start:static:build": "EXPO_PUBLIC_DOMAIN=$EXPO_PUBLIC_DOMAIN npx expo start --no-dev --minify --localhost",
     "expo:static:build": "node scripts/build.js",
     "server:build": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=server_dist",
     "server:prod": "NODE_ENV=production node server_dist/index.js",
