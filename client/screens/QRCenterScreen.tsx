@@ -27,9 +27,16 @@ import { EmptyState } from "@/components/EmptyState";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 type EntityType = "HALL" | "STATION" | "STAND" | "BOX" | "WAREHOUSE_CONTAINER";
+
+interface ApiEntity {
+  id: string;
+  displayName: string;
+  qrCode: string | null;
+  extraMeta: { type: EntityType; [key: string]: unknown };
+}
 
 interface Entity {
   id: string;
@@ -37,6 +44,16 @@ interface Entity {
   type: EntityType;
   qrCode?: string;
   metadata?: Record<string, unknown>;
+}
+
+function mapApiEntityToEntity(apiEntity: ApiEntity): Entity {
+  return {
+    id: apiEntity.id,
+    name: apiEntity.displayName || "Unbekannt",
+    type: apiEntity.extraMeta?.type || "HALL",
+    qrCode: apiEntity.qrCode || undefined,
+    metadata: apiEntity.extraMeta,
+  };
 }
 
 const ENTITY_TYPES: { key: EntityType; label: string; icon: keyof typeof Feather.glyphMap }[] = [
@@ -62,6 +79,17 @@ export default function QRCenterScreen() {
 
   const { data: entities, isLoading, refetch, isRefetching } = useQuery<Entity[]>({
     queryKey: ["/api/qr/entities", { type: selectedType, query: searchQuery }],
+    queryFn: async () => {
+      const url = new URL("/api/qr/entities", getApiUrl());
+      url.searchParams.set("type", selectedType);
+      if (searchQuery) {
+        url.searchParams.set("query", searchQuery);
+      }
+      const response = await fetch(url.toString(), { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch entities");
+      const apiEntities: ApiEntity[] = await response.json();
+      return apiEntities.map(mapApiEntityToEntity);
+    },
   });
 
   const ensureMutation = useMutation({
