@@ -21,6 +21,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { EmptyState } from "@/components/EmptyState";
+import { getMaterialColors } from "@shared/materialColors";
 
 const OutdoorMap = require("../../assets/images/OUT_1765592733817.png");
 const K13Map = require("../../assets/images/K13_1765592733815.png");
@@ -439,12 +440,17 @@ export default function MapScreen() {
                         <View style={styles.standInfo}>
                           <ThemedText style={styles.standIdentifier}>{stand.identifier}</ThemedText>
                           {stand.material ? (
-                            <View style={styles.materialBadge}>
-                              <Feather name="box" size={12} color={theme.info} />
-                              <ThemedText style={[styles.materialName, { color: theme.info }]}>
-                                {stand.material.name}
-                              </ThemedText>
-                            </View>
+                            (() => {
+                              const materialColors = getMaterialColors(stand.material.code);
+                              return (
+                                <View style={[styles.materialBadge, { backgroundColor: materialColors.background, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: BorderRadius.sm }]}>
+                                  <View style={[styles.materialDot, { backgroundColor: materialColors.primary }]} />
+                                  <ThemedText style={[styles.materialName, { color: materialColors.text }]}>
+                                    {materialColors.label}
+                                  </ThemedText>
+                                </View>
+                              );
+                            })()
                           ) : null}
                         </View>
                         <View style={styles.standBadges}>
@@ -758,8 +764,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.xs,
   },
+  materialDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   materialName: {
     ...Typography.small,
+    fontWeight: "600",
   },
   standBadges: {
     flexDirection: "row",
