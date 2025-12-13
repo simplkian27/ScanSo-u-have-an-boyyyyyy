@@ -1,0 +1,181 @@
+Rolle
+Du bist Lead Engineer (NestJS + Postgres + Expo RN). Implementiere produktionsreif DB/API/UI. Kein Pseudocode.
+
+1) Zeitpläne (Admin) – extrem einfach
+Ziel
+
+Admin soll nur auswählen:
+
+Stand (Ständer/Stellplatz)
+
+Regel (Daily reicht für MVP)
+
+Uhrzeit (default 06:00)
+
+optional create_days_ahead (default 7)
+
+Admin muss NICHT:
+
+Box auswählen
+
+Material eintippen
+
+Station/Halle eintippen (kommt über Stand.station_id → Station.hall_id)
+
+Datenquelle
+
+task_schedules existiert bereits.
+
+UI-Anforderung
+
+Im Admin-Tab „Zeitpläne“:
+
+Button „Hinzufügen“
+
+Dropdown-Kette:
+
+Halle (halls)
+
+Station (stations gefiltert nach hall)
+
+Stand (stands gefiltert nach station; Anzeige: identifier + Materialname)
+
+Felder:
+
+time_local (Default 06:00)
+
+rule_type (Default DAILY)
+
+create_days_ahead (Default 7)
+
+is_active
+
+Speichern → POST /admin/task-schedules
+
+2) Scheduler: Aufgaben aus Zeitplänen erzeugen
+
+Implementiere serverseitigen Cron (stündlich oder minütlich), der für jedes aktive Schedule Tasks für die nächsten create_days_ahead Tage erzeugt.
+
+WICHTIG: Task basiert auf Stand, nicht Box
+
+Beim Erzeugen eines Tasks:
+
+Task MUSS stand_id setzen
+
+Task SOLL optional box_id setzen, aber nur wenn aktuell eine Box am Stand steht:
+
+SELECT box WHERE boxes.stand_id = stand_id AND is_active=true LIMIT 1
+
+Wenn keine Box vorhanden: Task trotzdem erzeugen, aber box_id=NULL.
+
+In der Taskanzeige soll dann stehen: „Aktuelle Box: — (noch nicht platziert)“
+
+Dedup-Logik (zwingend)
+
+Nutze tasks.dedup_key (unique) um doppelte Tasks zu verhindern:
+
+dedup_key = 'SCHED:' + schedule_id + ':' + YYYY-MM-DD
+
+source = 'SCHEDULED'
+
+scheduled_for = Datum
+
+status = 'OPEN'
+
+Wenn Insert wegen dedup_key unique fehlschlägt → ignore (idempotent).
+
+Task Titel
+
+title automatisch: Daily Pickup - <Material> - <Stand.identifier>
+
+Events
+
+Bei Task-Erzeugung:
+
+schreibe task_events (action='TASK_CREATED', meta_json includes scheduleId, standId, stationId, hallId, materialId, boxId if any)
+oder activity_logs.
+
+3) Laufzeitlogik: Box ändert sich – Task bleibt stand-basiert
+
+Wenn ein Daily Task offen ist und am Stand später eine andere Box steht:
+
+Die UI soll beim Öffnen des Tasks immer live die aktuelle Box am Stand anzeigen (zusätzlich zu task.box_id falls gesetzt).
+
+Daher implementiere API:
+
+GET /tasks/:id -> beinhaltet currentBoxAtStand (live lookup über boxes.stand_id)
+
+4) „Jeder kann alles“ & Open Queue
+
+GET /tasks zeigt alle Tasks
+
+Keine assigned_to Logik nutzen
+
+Claim nur Kollisionsschutz (claimed_by_user_id / claimed_at)
+
+Beim Abstellen (IN_TRANSIT→DROPPED_OFF) claim wird gelöscht
+
+5) Map-/Kartenansicht (MVP + Pro)
+MVP (Pflicht)
+
+Implementiere eine Map-Ansicht als schematische Navigation:
+
+Screen: „Map“
+
+Kachel/Dropdown: Halle wählen
+
+Liste/Grids: Stationen in dieser Halle (klickbar)
+
+Station Detail: zeigt Stände + deren Status:
+
+Materialfarbe (über material_id)
+
+ob Box aktuell da steht (boxes.stand_id)
+
+offene Tasks für diesen Stand (heute/gesamt)
+
+Pro-Map (Optional, wenn Zeit)
+
+Nutze Hallenplan als Hintergrundbild (PNG aus PDF exportiert, statisch im App-Bundle) und lege Marker drüber.
+
+Nutze stations.location_meta und/oder stands.position_meta als relative Koordinaten {x:0..1,y:0..1}
+
+Marker klickbar → Station/Stand Detail + Tasks
+
+Implementiere Admin-Editor für Koordinaten minimal:
+
+Im Station/Stand Detail: Button „Position setzen“
+
+Tap auf Karte setzt x/y in meta-Feld
+
+6) Output
+
+Backend: Schedule CRUD + Scheduler + task dedup + live box lookup
+
+Frontend: Zeitpläne UI (Halle→Station→Stand Auswahl), Task-Detail zeigt „aktuelle Box am Stand“
+
+Map Screen (MVP Pflicht, Pro optional)
+
+README_SCHEDULES.md + README_MAP.md
+
+C) Ist die Map-Ansicht anhand deiner PDF machbar?
+
+Ja, in zwei Stufen:
+
+Stufe 1 (MVP, 1–2 Tage Entwicklungsaufwand typisch)
+
+keine PDF-Integration nötig
+
+Halle auswählen → Stationen anklicken → Stände/Tasks anzeigen
+
+optional simple „Plan-Grid“
+
+Stufe 2 (professionell, PDF als Bild + Marker)
+
+PDF wird als Bild exportiert (einmalig)
+
+App legt Marker darüber (Koordinaten in location_meta/position_meta)
+
+Ergebnis wirkt wie interne Werkskarte
+
+Das ist technisch absolut machbar in React Native, ohne externe GIS-Systeme.
