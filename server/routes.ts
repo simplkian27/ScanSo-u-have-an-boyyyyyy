@@ -201,6 +201,19 @@ async function buildStandContextMeta(standId: string): Promise<{
 }
 
 // ============================================================================
+// CLAIM TTL HELPER
+// ============================================================================
+
+const CLAIM_TTL_MINUTES = 30;
+
+function isClaimExpired(claimedAt: Date | null): boolean {
+  if (!claimedAt) return true;
+  const now = new Date();
+  const expiry = new Date(claimedAt.getTime() + CLAIM_TTL_MINUTES * 60 * 1000);
+  return now > expiry;
+}
+
+// ============================================================================
 // DAILY TASK SCHEDULER
 // ============================================================================
 
@@ -2380,9 +2393,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Claim task - Pull-based task claiming
-  // Driver or Admin can claim open tasks (OFFEN or PLANNED status)
-  // Sets claimedByUserId, claimedAt, assignedTo and transitions to ACCEPTED
+  // Claim task - Pull-based task claiming with TTL
+  // Anyone can claim any task for collision protection (30 min TTL)
+  // Claim does NOT change status - it's just a lock
   app.post("/api/tasks/:id/claim", requireAuth, async (req, res) => {
     try {
       const authUser = (req as any).authUser;
@@ -2392,95 +2405,332 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Auftrag nicht gefunden" });
       }
 
-      // Check if task is open and claimable
-      const CLAIMABLE_STATUSES = ["OFFEN", "PLANNED"];
-      if (!CLAIMABLE_STATUSES.includes(task.status)) {
+      // Check if task is in a terminal state
+      const TERMINAL_STATUSES = ["COMPLETED", "CANCELLED", "DISPOSED"];
+      if (TERMINAL_STATUSES.includes(task.status)) {
         return res.status(400).json({ 
-          error: "Auftrag kann nicht angenommen werden - falscher Status",
-          currentStatus: task.status,
-          allowedStatuses: CLAIMABLE_STATUSES
-        });
-      }
-
-      // Check if already claimed
-      if (task.claimedByUserId) {
-        const claimingUser = await storage.getUser(task.claimedByUserId);
-        return res.status(409).json({ 
-          error: "Auftrag wurde bereits von einem anderen Benutzer angenommen",
-          claimedBy: claimingUser?.name || "Unbekannt",
-          claimedAt: task.claimedAt
+          error: "Abgeschlossene Aufträge können nicht beansprucht werden",
+          currentStatus: task.status
         });
       }
 
       const now = new Date();
-      
-      // Update task with claim info and transition to ACCEPTED
+      let autoReleasedExpired = false;
+
+      // Check if already claimed and not expired
+      if (task.claimedByUserId) {
+        if (!isClaimExpired(task.claimedAt)) {
+          // Claim exists and is NOT expired - reject
+          const claimingUser = await storage.getUser(task.claimedByUserId);
+          return res.status(409).json({ 
+            error: "Auftrag wurde bereits von einem anderen Benutzer beansprucht",
+            claimedBy: claimingUser?.name || "Unbekannt",
+            claimedAt: task.claimedAt,
+            expiresAt: task.claimedAt ? new Date(task.claimedAt.getTime() + CLAIM_TTL_MINUTES * 60 * 1000) : null
+          });
+        } else {
+          // Claim exists but is expired - log auto-release and allow overwriting
+          autoReleasedExpired = true;
+          const standMeta = task.standId ? await buildStandContextMeta(task.standId) : {};
+          await createAuditEvent({
+            taskId: task.id,
+            actorUserId: authUser.id,
+            action: "AUTO_RELEASE_EXPIRED",
+            entityType: "task",
+            entityId: task.id,
+            beforeData: { claimedByUserId: task.claimedByUserId, claimedAt: task.claimedAt },
+            afterData: { claimedByUserId: null, claimedAt: null },
+            metaJson: {
+              ...standMeta,
+              boxId: task.boxId || undefined,
+              reason: "Claim expired after TTL",
+            },
+          });
+        }
+      }
+
+      // Update task with claim info only - do NOT change status
       await storage.updateTask(req.params.id, {
         claimedByUserId: authUser.id,
         claimedAt: now,
-        assignedTo: authUser.id,
-        assignedAt: now,
-        acceptedAt: now,
-        status: "ACCEPTED",
       });
 
       // Fetch updated task
       const updatedTask = await storage.getTask(req.params.id);
 
-      // Create activity log
-      await storage.createActivityLog({
-        type: "TASK_ACCEPTED",
-        action: "TASK_ACCEPTED",
-        message: `Auftrag angenommen von ${authUser.name}`,
-        userId: authUser.id,
+      // Create audit event for claim
+      const standMeta = task.standId ? await buildStandContextMeta(task.standId) : {};
+      await createAuditEvent({
         taskId: task.id,
-        containerId: task.containerID,
-        timestamp: now,
-        metadata: { claimedBy: authUser.id, claimedAt: now.toISOString() },
-        details: null,
-        location: null,
-        scanEventId: null,
+        actorUserId: authUser.id,
+        action: "CLAIM",
+        entityType: "task",
+        entityId: task.id,
+        beforeData: { claimedByUserId: autoReleasedExpired ? null : task.claimedByUserId },
+        afterData: { claimedByUserId: authUser.id, claimedAt: now },
+        metaJson: {
+          ...standMeta,
+          boxId: task.boxId || undefined,
+          autoReleasedExpired,
+        },
       });
 
-      // Get source container info
-      const sourceContainer = await storage.getCustomerContainer(task.containerID);
-      let targetContainer = null;
-      if (task.deliveryContainerID) {
-        targetContainer = await storage.getWarehouseContainer(task.deliveryContainerID);
-      }
-
-      const response: any = {
+      res.json({ 
         task: updatedTask,
-        sourceContainer: sourceContainer ? {
-          id: sourceContainer.id,
-          label: sourceContainer.id,
-          location: sourceContainer.location,
-          content: sourceContainer.materialType,
-          materialType: sourceContainer.materialType,
-          customerName: sourceContainer.customerName,
-          unit: updatedTask?.plannedQuantityUnit || "kg",
-          plannedPickupQuantity: updatedTask?.plannedQuantity || updatedTask?.estimatedAmount || 0,
-        } : null,
-      };
-
-      if (targetContainer) {
-        response.targetContainer = {
-          id: targetContainer.id,
-          label: targetContainer.id,
-          location: targetContainer.location,
-          content: targetContainer.materialType,
-          materialType: targetContainer.materialType,
-          capacity: targetContainer.maxCapacity,
-          currentFill: targetContainer.currentAmount,
-          remainingCapacity: targetContainer.maxCapacity - targetContainer.currentAmount,
-          unit: targetContainer.quantityUnit,
-        };
-      }
-
-      res.json(response);
+        claimed: true,
+        expiresAt: new Date(now.getTime() + CLAIM_TTL_MINUTES * 60 * 1000),
+        autoReleasedExpired,
+      });
     } catch (error) {
       console.error("Failed to claim task:", error);
-      res.status(500).json({ error: "Fehler beim Annehmen des Auftrags" });
+      res.status(500).json({ error: "Fehler beim Beanspruchen des Auftrags" });
+    }
+  });
+
+  // Release task - Clear the claim on a task
+  // Anyone can release any task (no ownership check)
+  app.post("/api/tasks/:id/release", requireAuth, async (req, res) => {
+    try {
+      const authUser = (req as any).authUser;
+      const task = await storage.getTask(req.params.id);
+      
+      if (!task) {
+        return res.status(404).json({ error: "Auftrag nicht gefunden" });
+      }
+
+      const previousClaim = {
+        claimedByUserId: task.claimedByUserId,
+        claimedAt: task.claimedAt,
+      };
+
+      // Clear the claim
+      await storage.updateTask(req.params.id, {
+        claimedByUserId: null,
+        claimedAt: null,
+      });
+
+      // Fetch updated task
+      const updatedTask = await storage.getTask(req.params.id);
+
+      // Create audit event for release
+      const standMeta = task.standId ? await buildStandContextMeta(task.standId) : {};
+      await createAuditEvent({
+        taskId: task.id,
+        actorUserId: authUser.id,
+        action: "RELEASE",
+        entityType: "task",
+        entityId: task.id,
+        beforeData: previousClaim,
+        afterData: { claimedByUserId: null, claimedAt: null },
+        metaJson: {
+          ...standMeta,
+          boxId: task.boxId || undefined,
+        },
+      });
+
+      res.json({ 
+        task: updatedTask,
+        released: true,
+      });
+    } catch (error) {
+      console.error("Failed to release task:", error);
+      res.status(500).json({ error: "Fehler beim Freigeben des Auftrags" });
+    }
+  });
+
+  // Transition task - Unified status transition endpoint
+  // Validates transition, auto-claims if needed, auto-releases on DROPPED_OFF
+  app.post("/api/tasks/:id/transition", requireAuth, async (req, res) => {
+    try {
+      const { toStatus, weightKg, targetWarehouseContainerId, reason } = req.body;
+      const authUser = (req as any).authUser;
+      
+      if (!toStatus) {
+        return res.status(400).json({ error: "toStatus is required" });
+      }
+
+      const task = await storage.getTask(req.params.id);
+      if (!task) {
+        return res.status(404).json({ error: "Auftrag nicht gefunden" });
+      }
+
+      // Validate transition using assertAutomotiveTransition
+      try {
+        assertAutomotiveTransition(task.status, toStatus);
+      } catch (error: any) {
+        return res.status(409).json({ 
+          error: error.message,
+          currentStatus: task.status,
+          requestedStatus: toStatus
+        });
+      }
+
+      // Require weightKg for TAKEN_OVER → WEIGHED transition
+      if (task.status === "TAKEN_OVER" && toStatus === "WEIGHED") {
+        if (weightKg === undefined || weightKg === null) {
+          return res.status(400).json({ error: "weightKg is required for WEIGHED status" });
+        }
+      }
+
+      const now = new Date();
+      let autoClaimed = false;
+      let autoReleased = false;
+
+      // Build metaJson context for audit events
+      const standMeta = task.standId ? await buildStandContextMeta(task.standId) : {};
+
+      // Auto-claim if not claimed or claim is expired
+      if (!task.claimedByUserId || isClaimExpired(task.claimedAt)) {
+        autoClaimed = true;
+        // Log auto-claim event
+        await createAuditEvent({
+          taskId: task.id,
+          actorUserId: authUser.id,
+          action: "AUTO_CLAIM",
+          entityType: "task",
+          entityId: task.id,
+          beforeData: { claimedByUserId: task.claimedByUserId, claimedAt: task.claimedAt },
+          afterData: { claimedByUserId: authUser.id, claimedAt: now },
+          metaJson: {
+            ...standMeta,
+            boxId: task.boxId || undefined,
+            reason: "Auto-claimed before status transition",
+          },
+        });
+      }
+
+      const beforeData = { 
+        status: task.status, 
+        weightKg: task.weightKg,
+        targetWarehouseContainerId: task.targetWarehouseContainerId,
+        claimedByUserId: task.claimedByUserId,
+        claimedAt: task.claimedAt,
+      };
+
+      const updateData: any = {
+        status: toStatus,
+        updatedAt: now,
+      };
+
+      // Auto-claim if needed
+      if (autoClaimed) {
+        updateData.claimedByUserId = authUser.id;
+        updateData.claimedAt = now;
+      }
+
+      // Auto-release on DROPPED_OFF transition (from IN_TRANSIT)
+      if (toStatus === "DROPPED_OFF") {
+        updateData.claimedByUserId = null;
+        updateData.claimedAt = null;
+        autoReleased = true;
+      }
+
+      // Set timestamp field for the status
+      const timestampField = getAutomotiveTimestampFieldForStatus(toStatus);
+      if (timestampField) {
+        updateData[timestampField] = now;
+      }
+
+      if (weightKg !== undefined) {
+        updateData.weightKg = weightKg;
+        updateData.weighedByUserId = authUser.id;
+      }
+
+      if (targetWarehouseContainerId !== undefined) {
+        updateData.targetWarehouseContainerId = targetWarehouseContainerId;
+      }
+
+      if (reason !== undefined) {
+        updateData.cancellationReason = reason;
+      }
+
+      // Perform the update
+      await storage.updateTask(req.params.id, updateData);
+
+      // Handle box status updates for terminal states
+      if ((toStatus === "DISPOSED" || toStatus === "CANCELLED") && task.boxId) {
+        await db.update(boxes)
+          .set({ 
+            currentTaskId: null, 
+            status: toStatus === "DISPOSED" ? "AT_WAREHOUSE" : "AT_STAND",
+            updatedAt: now 
+          })
+          .where(eq(boxes.id, task.boxId));
+      }
+
+      const eventMetaJson = {
+        ...standMeta,
+        boxId: task.boxId || undefined,
+        containerId: task.boxId || undefined,
+        targetWarehouseContainerId: updateData.targetWarehouseContainerId || undefined,
+        autoClaimed,
+        autoReleased,
+      };
+
+      // Log STATUS_CHANGED event
+      await createAuditEvent({
+        taskId: task.id,
+        actorUserId: authUser.id,
+        action: "STATUS_CHANGED",
+        entityType: "task",
+        entityId: task.id,
+        beforeData,
+        afterData: { 
+          status: toStatus, 
+          weightKg: updateData.weightKg,
+          targetWarehouseContainerId: updateData.targetWarehouseContainerId,
+          claimedByUserId: updateData.claimedByUserId,
+          reason
+        },
+        metaJson: eventMetaJson,
+      });
+
+      // Log auto-release event separately if it happened
+      if (autoReleased) {
+        await createAuditEvent({
+          taskId: task.id,
+          actorUserId: authUser.id,
+          action: "AUTO_RELEASE",
+          entityType: "task",
+          entityId: task.id,
+          beforeData: { claimedByUserId: autoClaimed ? authUser.id : task.claimedByUserId },
+          afterData: { claimedByUserId: null, claimedAt: null },
+          metaJson: {
+            ...standMeta,
+            boxId: task.boxId || undefined,
+            reason: "Auto-released on DROPPED_OFF transition",
+          },
+        });
+      }
+
+      // Log WEIGHT_RECORDED when weight is set during WEIGHED transition
+      if (toStatus === "WEIGHED" && weightKg !== undefined) {
+        await createAuditEvent({
+          taskId: task.id,
+          actorUserId: authUser.id,
+          action: "WEIGHT_RECORDED",
+          entityType: "task",
+          entityId: task.id,
+          beforeData: { weightKg: task.weightKg },
+          afterData: { weightKg },
+          metaJson: eventMetaJson,
+        });
+      }
+
+      // Fetch updated task
+      const updatedTask = await storage.getTask(req.params.id);
+
+      res.json({ 
+        task: updatedTask,
+        transitioned: true,
+        fromStatus: task.status,
+        toStatus,
+        autoClaimed,
+        autoReleased,
+      });
+    } catch (error) {
+      console.error("Failed to transition task:", error);
+      res.status(500).json({ error: "Fehler beim Statuswechsel des Auftrags" });
     }
   });
 
@@ -3799,6 +4049,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PUT /api/automotive/tasks/:id/status - Update task status with transition guard
+  // Auto-claims if not claimed, auto-releases on DROPPED_OFF
   app.put("/api/automotive/tasks/:id/status", requireAuth, async (req, res) => {
     try {
       const { status, weightKg, targetWarehouseContainerId, reason } = req.body;
@@ -3829,20 +4080,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      const now = new Date();
+      let autoClaimed = false;
+      let autoReleased = false;
+
+      // Build metaJson context for audit events
+      const standMeta = task.standId ? await buildStandContextMeta(task.standId) : {};
+
+      // Auto-claim if not claimed or claim is expired
+      if (!task.claimedByUserId || isClaimExpired(task.claimedAt)) {
+        autoClaimed = true;
+        // Log auto-claim event
+        await createAuditEvent({
+          taskId: task.id,
+          actorUserId: authUser.id,
+          action: "AUTO_CLAIM",
+          entityType: "task",
+          entityId: task.id,
+          beforeData: { claimedByUserId: task.claimedByUserId, claimedAt: task.claimedAt },
+          afterData: { claimedByUserId: authUser.id, claimedAt: now },
+          metaJson: {
+            ...standMeta,
+            boxId: task.boxId || undefined,
+            reason: "Auto-claimed before status transition",
+          },
+        });
+      }
+
       const beforeData = { 
         status: task.status, 
         weightKg: task.weightKg,
-        targetWarehouseContainerId: task.targetWarehouseContainerId
+        targetWarehouseContainerId: task.targetWarehouseContainerId,
+        claimedByUserId: task.claimedByUserId,
+        claimedAt: task.claimedAt,
       };
 
       const updateData: any = {
         status,
-        updatedAt: new Date(),
+        updatedAt: now,
       };
+
+      // Auto-claim if needed
+      if (autoClaimed) {
+        updateData.claimedByUserId = authUser.id;
+        updateData.claimedAt = now;
+      }
+
+      // Auto-release on DROPPED_OFF transition
+      if (status === "DROPPED_OFF") {
+        updateData.claimedByUserId = null;
+        updateData.claimedAt = null;
+        autoReleased = true;
+      }
 
       const timestampField = getAutomotiveTimestampFieldForStatus(status);
       if (timestampField) {
-        updateData[timestampField] = new Date();
+        updateData[timestampField] = now;
       }
 
       if (weightKg !== undefined) {
@@ -3869,19 +4162,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .set({ 
               currentTaskId: null, 
               status: status === "DISPOSED" ? "AT_WAREHOUSE" : "AT_STAND",
-              updatedAt: new Date() 
+              updatedAt: now 
             })
             .where(eq(boxes.id, task.boxId));
         }
       }
 
-      // Build metaJson context from task's stand/box
-      const standMeta = task.standId ? await buildStandContextMeta(task.standId) : {};
       const eventMetaJson = {
         ...standMeta,
         boxId: task.boxId || undefined,
         containerId: task.boxId || undefined,
         targetWarehouseContainerId: updateData.targetWarehouseContainerId || undefined,
+        autoClaimed,
+        autoReleased,
       };
 
       // Log STATUS_CHANGED event
@@ -3896,10 +4189,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status, 
           weightKg: updateData.weightKg,
           targetWarehouseContainerId: updateData.targetWarehouseContainerId,
+          claimedByUserId: updateData.claimedByUserId,
           reason
         },
         metaJson: eventMetaJson,
       });
+
+      // Log auto-release event separately if it happened
+      if (autoReleased) {
+        await createAuditEvent({
+          taskId: task.id,
+          actorUserId: authUser.id,
+          action: "AUTO_RELEASE",
+          entityType: "task",
+          entityId: task.id,
+          beforeData: { claimedByUserId: autoClaimed ? authUser.id : task.claimedByUserId },
+          afterData: { claimedByUserId: null, claimedAt: null },
+          metaJson: {
+            ...standMeta,
+            boxId: task.boxId || undefined,
+            reason: "Auto-released on DROPPED_OFF transition",
+          },
+        });
+      }
 
       // Log WEIGHT_RECORDED when weight is set during WEIGHED transition
       if (status === "WEIGHED" && weightKg !== undefined) {
@@ -3915,7 +4227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      res.json(updatedTask);
+      res.json({ ...updatedTask, autoClaimed, autoReleased });
     } catch (error) {
       console.error("Failed to update task status:", error);
       res.status(500).json({ error: "Failed to update task status" });
