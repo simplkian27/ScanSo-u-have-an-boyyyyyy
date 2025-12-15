@@ -1,5 +1,14 @@
 {
   "name": "my-app",
+<<<<<<< Updated upstream
+=======
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+>>>>>>> Stashed changes
   "main": "client/index.js",
   "version": "1.0.0",
   "type": "module",
@@ -48,6 +57,11 @@
     "expo-web-browser": "~15.0.10",
     "express": "^4.21.2",
     "http-proxy-middleware": "^3.0.5",
+<<<<<<< Updated upstream
+=======
+    "node.js": "^0.0.1-security",
+    "npx": "^10.2.2",
+>>>>>>> Stashed changes
     "pg": "^8.16.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -71,7 +85,11 @@
     "@types/node": "24.10.0",
     "@types/react": "~19.1.0",
     "babel-plugin-module-resolver": "^5.0.2",
+<<<<<<< Updated upstream
     "drizzle-kit": "^0.31.4",
+=======
+    "drizzle-kit": "^0.31.8",
+>>>>>>> Stashed changes
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "eslint-config-prettier": "^10.1.8",
