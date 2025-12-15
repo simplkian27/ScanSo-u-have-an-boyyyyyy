@@ -1004,11 +1004,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } = req.body;
 
         if (!name || !standId || !ruleType || !timeLocal) {
-          return res
-            .status(400)
-            .json({
-              error: "Name, standId, ruleType, and timeLocal are required",
-            });
+          return res.status(400).json({
+            error: "Name, standId, ruleType, and timeLocal are required",
+          });
         }
 
         if (!["DAILY", "WEEKLY", "INTERVAL"].includes(ruleType)) {
@@ -1027,11 +1025,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (ruleType === "INTERVAL" && (!everyNDays || everyNDays < 1)) {
-          return res
-            .status(400)
-            .json({
-              error: "everyNDays (>=1) is required for INTERVAL rule type",
-            });
+          return res.status(400).json({
+            error: "everyNDays (>=1) is required for INTERVAL rule type",
+          });
         }
 
         const [stand] = await db
@@ -1442,12 +1438,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(newTask);
     } catch (error: any) {
       if (error?.code === "23505") {
-        return res
-          .status(409)
-          .json({
-            error:
-              "A task with this title already exists for this stand and date",
-          });
+        return res.status(409).json({
+          error:
+            "A task with this title already exists for this stand and date",
+        });
       }
       console.error("[Tasks] Failed to create manual task:", error);
       res.status(500).json({ error: "Failed to create task" });
@@ -2160,12 +2154,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(task);
     } catch (error) {
       console.error("Failed to create task:", error);
-      res
-        .status(500)
-        .json({
-          error: "Failed to create task",
-          details: error instanceof Error ? error.message : String(error),
-        });
+      res.status(500).json({
+        error: "Failed to create task",
+        details: error instanceof Error ? error.message : String(error),
+      });
     }
   });
 
@@ -2422,12 +2414,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
       );
       if (!updatedTask) {
-        return res
-          .status(400)
-          .json({
-            error:
-              "Ungültiger Status-Übergang. Aktueller Status: " + task.status,
-          });
+        return res.status(400).json({
+          error: "Ungültiger Status-Übergang. Aktueller Status: " + task.status,
+        });
       }
 
       await storage.updateTask(req.params.id, {
@@ -2796,11 +2785,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "CANCELLED",
       );
       if (!updatedTask) {
-        return res
-          .status(400)
-          .json({
-            error: "Invalid status transition - task may already be completed",
-          });
+        return res.status(400).json({
+          error: "Invalid status transition - task may already be completed",
+        });
       }
 
       await storage.updateTask(req.params.id, {
@@ -3356,19 +3343,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Special handling for TASK_COMPLETE_AT_WAREHOUSE - requires measuredWeight
       if (scanContext === "TASK_COMPLETE_AT_WAREHOUSE") {
         if (!taskId) {
-          return res
-            .status(400)
-            .json({
-              error: "taskId ist erforderlich für Lager-Abschluss-Scan",
-            });
+          return res.status(400).json({
+            error: "taskId ist erforderlich für Lager-Abschluss-Scan",
+          });
         }
 
         if (measuredWeight === undefined || measuredWeight === null) {
-          return res
-            .status(400)
-            .json({
-              error: "measuredWeight ist erforderlich für Lager-Abschluss-Scan",
-            });
+          return res.status(400).json({
+            error: "measuredWeight ist erforderlich für Lager-Abschluss-Scan",
+          });
         }
 
         const weight = parseFloat(measuredWeight);
@@ -4418,11 +4401,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(stations)
         .where(and(eq(stations.hallId, hallId), eq(stations.code, code)));
       if (existingStation) {
-        return res
-          .status(400)
-          .json({
-            error: `Stationscode '${code}' existiert bereits in dieser Halle`,
-          });
+        return res.status(400).json({
+          error: `Stationscode '${code}' existiert bereits in dieser Halle`,
+        });
       }
 
       const [station] = await db
@@ -4470,11 +4451,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ),
           );
         if (duplicateStation) {
-          return res
-            .status(400)
-            .json({
-              error: `Stationscode '${code}' existiert bereits in dieser Halle`,
-            });
+          return res.status(400).json({
+            error: `Stationscode '${code}' existiert bereits in dieser Halle`,
+          });
         }
       }
 
@@ -4549,11 +4528,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ),
           );
         if (duplicateStation) {
-          return res
-            .status(400)
-            .json({
-              error: `Stationscode '${existingStation.code}' existiert bereits in der Ziel-Halle`,
-            });
+          return res.status(400).json({
+            error: `Stationscode '${existingStation.code}' existiert bereits in der Ziel-Halle`,
+          });
         }
 
         const [sourceHall] = await db
@@ -5693,11 +5670,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate scanned box matches the task's box (if box is already assigned)
       if (scannedBoxId && task.boxId && scannedBoxId !== task.boxId) {
-        return res
-          .status(400)
-          .json({
-            error: "Gescannte Box stimmt nicht mit der Aufgabe überein",
-          });
+        return res.status(400).json({
+          error: "Gescannte Box stimmt nicht mit der Aufgabe überein",
+        });
       }
 
       // OPEN -> PICKED_UP: Validate box is at the task's stand
@@ -6969,12 +6944,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (groupBy === "month") {
           dateExpr = sql`DATE_TRUNC('month', ${tasks.disposedAt})`;
         } else {
-          return res
-            .status(400)
-            .json({
-              error:
-                "Invalid groupBy parameter. Use: material, day, week, or month",
-            });
+          return res.status(400).json({
+            error:
+              "Invalid groupBy parameter. Use: material, day, week, or month",
+          });
         }
 
         const result = await db
@@ -8148,11 +8121,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const searchQuery = query as string | undefined;
 
       if (entityType && !QR_ENTITY_TYPES.includes(entityType)) {
-        return res
-          .status(400)
-          .json({
-            error: `Invalid type. Must be one of: ${QR_ENTITY_TYPES.join(", ")}`,
-          });
+        return res.status(400).json({
+          error: `Invalid type. Must be one of: ${QR_ENTITY_TYPES.join(", ")}`,
+        });
       }
 
       const results: QrEntityRow[] = [];
@@ -8281,11 +8252,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (!QR_ENTITY_TYPES.includes(type)) {
-        return res
-          .status(400)
-          .json({
-            error: `Invalid type. Must be one of: ${QR_ENTITY_TYPES.join(", ")}`,
-          });
+        return res.status(400).json({
+          error: `Invalid type. Must be one of: ${QR_ENTITY_TYPES.join(", ")}`,
+        });
       }
 
       let existingQrCode: string | null = null;
@@ -8412,11 +8381,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (!QR_ENTITY_TYPES.includes(type)) {
-          return res
-            .status(400)
-            .json({
-              error: `Invalid type. Must be one of: ${QR_ENTITY_TYPES.join(", ")}`,
-            });
+          return res.status(400).json({
+            error: `Invalid type. Must be one of: ${QR_ENTITY_TYPES.join(", ")}`,
+          });
         }
 
         let oldQrCode: string | null = null;

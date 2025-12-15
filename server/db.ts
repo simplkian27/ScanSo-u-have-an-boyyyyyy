@@ -13,13 +13,6 @@ const { Pool } = pg;
 //
 // Connection String (from Supabase Dashboard → Settings → Database):
 // postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
-// ============================================================================
-
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. For Supabase, copy the connection string from your Supabase Dashboard → Settings → Database → Connection String (URI format).",
-  );
-}
 
 const databaseUrl = process.env.DATABASE_URL;
 
